@@ -63,16 +63,16 @@ initServiceFull name realMain maybeRootMain = do
     when (isJust maybeRootMain && mode /= Service) (error "Privileged actions can only be run as a service.")
 
     let cmd = doMain name realMain mode args
-    if mode /= Service 
-      then cmd 
+    if mode /= Service
+      then cmd
       else serviced $ simpleDaemon {
       program = const $ cmd
       --,privilegedAction = maybe (return ()) (\f -> f cfg) maybeRootMain
       ,privilegedAction = fromMaybe (return ()) maybeRootMain
-      ,user  = Just name               
+      ,user  = Just name
       ,group = Just name
       }
-    
+
 doMain name realMain mode args = do
     userID <- getRealUserID
     home <- fmap homeDirectory $ getUserEntryForID userID
@@ -109,7 +109,7 @@ setupLog name mode logFile = do
 
     -- E.catch (removeFile logFile) (\e -> return ())
     -- On disk, register everything. 
-    h <- if mode /= Service
+    h <- if mode == Interactive -- /= Service
          then verboseStreamHandler stderr DEBUG
          else fileHandler logFile DEBUG >>= \h -> return $ setFormatter h (simpleLogFormatter "[$time : $loggername : $prio] $msg")              
     updateGlobalLogger rootLoggerName (setHandlers [h])

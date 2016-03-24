@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings ,StandaloneDeriving  #-}
-module Pandoc.Report(Report(..),report,newServiceReport,asText,asHTML,p) where
+module Pandoc.Report(Report(..),report,newServiceReport,asText,asHTML,p,bulletList) where
 
 import           Control.Applicative
 import           Data.Default

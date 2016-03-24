@@ -18,9 +18,12 @@ newByTypeRouter = do
   return $ Router (absType (Proxy::Proxy ByType)) (report_ state) (handler_ state)
 
     where
-      report_ state = report "ByType Router" [("Open Conns",p . show <$> (atomically . T.toList . SMM.stream $ state))]
+      report_ state = report "ByType Router" [
+        ("Open Conns"
+        ,bulletList . map (p . show) <$> (allConns state)
+        )]
 
-      -- allConns st = atomically . T.toList . SMM.stream $ st
+      allConns = atomically . T.toList . SMM.stream
 
       handler_ st bs client = do
         let hub@(ByType hubName) = decodeOK bs
