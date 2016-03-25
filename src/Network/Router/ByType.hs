@@ -19,7 +19,7 @@ newByTypeRouter = do
 
     where
       report_ state = report "ByType Router" [
-        ("Open Conns"
+        ("Open Connections"
         ,bulletList . map (p . show) <$> (allConns state)
         )]
 

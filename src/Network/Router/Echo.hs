@@ -14,7 +14,7 @@ newEchoRouter = do
    return $ Router (absType (Proxy::Proxy Echo)) (report_ state) (handler_ state)
 
      where
-       report_ state = report "Echo Router" [("Open Connections",p . show <$> (atomically . T.toList . S.stream $ state))]
+       report_ state = report "Echo Router" [("Open Connections",bulletList . map (p . show) <$> (atomically . T.toList . S.stream $ state))]
 
        handler_ state echoBytes client = do
          dbg ["Protocol ECHO started",show echoBytes]
@@ -25,6 +25,6 @@ newEchoRouter = do
          loop (atomically $ S.delete client state) $ do
            msg <- receiveMsg conn
            when (echoDebug echo) $ dbg ["ECHO",show $ L.unpack msg]
-           dbg ["ECHO msg lenght=",show $ L.length msg] 
+           dbg ["ECHO msg lenght=",show $ L.length msg]
            sendMsg conn msg
 
