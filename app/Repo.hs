@@ -31,7 +31,7 @@ setup cfg = do
 
   db <- openDB (stateDir cfg)
 
-  runClientForever def (byType (Proxy::Proxy Repo)) $ \conn -> runEffect $ pipeIn conn >-> agent db >-> pipeOut conn
+  runClientForever def ByType $ \conn -> runEffect $ pipeIn conn >-> agent db >-> pipeOut conn
 
     where
       agent db = do
@@ -46,13 +46,11 @@ setup cfg = do
                                  else Left $ unwords ["Unknown types:",show errs]
         agent db
 
-record :: Typed a => Proxy a -> IO ()
-record proxy = runClient def (byType (Proxy::Proxy Repo)) $
-   \conn -> mapM_ (send conn . Record) . absADTs $ proxy
+record :: Model a => Proxy a -> IO ()
+record proxy = runClient def ByType $ \conn -> mapM_ (send conn . Record) . absADTs $ proxy
 
--- record :: Typed a => Proxy a -> IO ()
-
-solve proxy = runClient def (byType (Proxy::Proxy Repo)) $ \conn -> do
+solve :: Model a => Proxy a -> IO (Either String [(AbsRef, AbsADT)])
+solve proxy = runClient def ByType $ \conn -> do
 
   let typ = absType proxy
   send conn (Solve typ)

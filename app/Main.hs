@@ -120,15 +120,14 @@ application st routers pending = do
     --when (not $ WS.requestSecure r)  $ done ["WebSockets request must be secure"]
     when (isNothing (find (== "quid2.net") (WS.getRequestSubprotocols r))) $ done ["Client must support WS protocol 'quid2.net'"]
 
-    eProt <- unflat <$> (WS.receiveData conn :: IO L.ByteString)
-
-    case eProt of
+    eProt <- WS.receiveData conn :: IO L.ByteString
+    case (unflat eProt) of
      Left e -> done ["Bad protocol type data",show e]
-     Right (TypedBytes protType protBytes) -> do
+     Right (TypedBytes protType@(TypeApp rType vType) protBytes) -> do
        let bs = toList protBytes
        dbg ["got router type",show protType,show protBytes,show bs]
-       case M.lookup protType routers of
-        Just router -> connNum st >>= routerHandler router bs . (`Client` conn)
+       case M.lookup rType routers of
+        Just router -> connNum st >>= routerHandler router vType bs . (`Client` conn)
         Nothing -> done ["Unsupported Quid2 Protocol",show protType]
  where
         failure conn reasons = do

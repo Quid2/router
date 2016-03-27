@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module Network.Router.Types(
-  Routers,Router(..),Client(..)
+  Routers,Router(..),router,Client(..),Word8
   ,module X) where
 
 import Data.Typed
@@ -19,8 +19,17 @@ type Routers = M.Map AbsType Router
 data Router = Router {
   routerKey    :: AbsType
   ,routerReport :: Report
-  ,routerHandler :: [Word8] -> Client -> IO ()
+  ,routerHandler :: Handler
   }
+
+type Handler = AbsType -> [Word8] -> Client -> IO ()
+
+router
+  :: Model a =>
+     Proxy a
+     -> Report -> Handler -> Router
+router proxy = let (TypeApp r _) = absType proxy
+               in Router r
 
 data Client = Client {
    clientId::Integer -- A unique value for the current server run
@@ -35,3 +44,4 @@ instance Hashable Client where hashWithSalt salt c = hashWithSalt salt $ clientI
 instance Hashable a => Hashable (NonEmptyList a)
 instance Hashable AbsRef
 instance Hashable a => Hashable (Type a)
+

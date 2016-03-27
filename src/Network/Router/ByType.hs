@@ -9,13 +9,13 @@ import qualified ListT                                as T
 import qualified STMContainers.Set                    as S
 import qualified STMContainers.Multimap               as SMM
 
-instance Hashable ByType
+-- instance Hashable ByType
 
 type ByTypeState = SMM.Multimap AbsType Client -- Multiple clients per hub
 
 newByTypeRouter = do
   state <- SMM.newIO
-  return $ Router (absType (Proxy::Proxy ByType)) (report_ state) (handler_ state)
+  return $ router (Proxy::Proxy (ByType ())) (report_ state) (handler_ state)
 
     where
       report_ state = report "ByType Router" [
@@ -25,15 +25,16 @@ newByTypeRouter = do
 
       allConns = atomically . T.toList . SMM.stream
 
-      handler_ st bs client = do
-        let hub@(ByType hubName) = decodeOK bs
+      handler_ :: ByTypeState -> AbsType -> [Word8] -> Client -> IO ()
+      handler_ st t bs client = do
+        let ByType :: ByType () = decodeOK bs
         let conn = clientConn client
-        liftIO $ dbg ["Protocol HUB",show hub,show client]
-        atomically $ SMM.insert client hubName st
-        loop (atomically $ SMM.delete client hubName st) $ do
+        liftIO $ dbg ["Protocol",show t,show client]
+        atomically $ SMM.insert client t st
+        loop (atomically $ SMM.delete client t st) $ do
           msg <- receiveMsg conn
-          dbg [show hub,"IN",show . L.unpack $ msg]
+          dbg [show t,"IN",show . L.unpack $ msg]
           -- send to all but the message sender
-          cs <- filter (/= client) <$> (atomically $ T.toList $ SMM.streamByKey hubName st)
-          dbg [show hub,"TO",show cs]
+          cs <- filter (/= client) <$> (atomically $ T.toList $ SMM.streamByKey t st)
+          dbg [show t,"TO",show cs]
           mapM_ (\c -> sendMsg (clientConn c) msg) cs
