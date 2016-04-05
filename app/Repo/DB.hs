@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeFamilies     #-}
-module Repo.DB(openDB,closeDB,getDB,putDB) where
+module Repo.DB(DBState(..),wholeDB,openDB,closeDB,getDB,putDB) where
 
 import           Control.Monad.Reader
 import           Control.Monad.State
@@ -14,7 +14,7 @@ import           System.FilePath
 
 type DB = AcidState DBState
 
-data DBState = DBState !(M.Map AbsRef AbsADT)
+data DBState = DBState !ADTEnv
              deriving (Typeable,Show)
 
 -- Transactions

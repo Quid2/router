@@ -1,5 +1,5 @@
 name:                router
-version:             0.1.0.0
+version:             0.1.1
 synopsis:            Flexible, typed router.
 description:         Please see README.md
 homepage:            http://github.com/tittoassini/router#readme
@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Network.Router.ByType,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Quid2.Util.Dir,Quid2.Util.Service
+  exposed-modules:     Data.Time.Util,Network.Router.ByType,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Quid2.Util.Dir,Quid2.Util.Service
   build-depends:       base >= 4.7 && < 5
                      , bytestring,stm,stm-containers>=0.2.4,hashable,containers,list-t
                      , transformers >= 0.4
@@ -31,7 +31,8 @@ library
                      , filepath
                      , strict
                      , model,flat,typed
-                     , router-api
+                     , quid2-net
+                     ,ghc,ghc-paths,timeit,plugins
   default-language:    Haskell2010
 
 executable quid2.net
@@ -55,7 +56,7 @@ executable quid2.net
                      --, xformat
                      , scotty>=0.7.2
                      , stm,transformers
-                     , typed, router-api,router
+                     , typed, quid2-net,router
 
   default-language:    Haskell2010
 
@@ -68,10 +69,25 @@ executable quid2-repo
                      , bytestring
                      , hslogger
                      , text
-                     , containers,acid-state,safecopy,filepath,mtl
-                     , typed, router-api,router
+                     , containers,acid-state,safecopy,filepath,mtl,blaze-html,warp,wai,wai-extra,scotty
+                     , typed, quid2-net,router
 
   default-language:    Haskell2010
+
+executable quid2-ghc
+  hs-source-dirs:      src
+  main-is:             Data/Typed/GHC.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  -- other-modules:       Repo.DB,Repo.Types
+  build-depends:       base
+                     , bytestring
+                     , hslogger
+                     , text
+                     , containers,acid-state,safecopy,filepath,mtl
+                     , typed, quid2-net,router,flat,transformers,websockets,ghc,ghc-paths,timeit,plugins
+
+  default-language:    Haskell2010
+
 
 source-repository head
   type:     git

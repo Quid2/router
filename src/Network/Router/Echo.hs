@@ -19,12 +19,11 @@ newEchoRouter = do
        handler_ state t echoBytes client = do
          dbg ["Protocol ECHO started",show echoBytes]
          let echo :: Echo () = decodeOK echoBytes
-         let conn = clientConn client
          dbg ["Protocol ECHO",show echo]
          atomically $ S.insert client state
          loop (atomically $ S.delete client state) $ do
-           msg <- receiveMsg conn
+           msg <- fromClient client
            when (echoDebug echo) $ dbg ["ECHO",show $ L.unpack msg]
            dbg ["ECHO msg length=",show $ L.length msg]
-           sendMsg conn msg
+           toClient client msg
 

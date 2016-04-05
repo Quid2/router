@@ -1,6 +1,8 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module Network.Router.Types(
-  Routers,Router(..),router,Client(..),Word8
+  Routers,Router(..),router
+  ,Client,newClient,fromClient,toClient
+  ,Word8
   ,module X) where
 
 import Data.Typed
@@ -13,6 +15,8 @@ import           Control.Applicative
 import qualified Network.WebSockets                   as WS
 import GHC.Generics
 import Data.Typeable
+import Data.Time.Clock
+import Network.Quid2.Util
 
 type Routers = M.Map AbsType Router
 
@@ -31,12 +35,20 @@ router
 router proxy = let (TypeApp r _) = absType proxy
                in Router r
 
+newClient n conn = do
+  t <- getCurrentTime
+  return $ Client n conn t
+
 data Client = Client {
    clientId::Integer -- A unique value for the current server run
    ,clientConn::WS.Connection
+   ,clientOpenTime::UTCTime
   }
 
-instance Show Client where show c = unwords ["Client",show $ clientId c]
+fromClient = receiveMsg . clientConn
+toClient = sendMsg . clientConn
+
+instance Show Client where show c = unwords ["Client",show $ clientId c,show $ clientOpenTime c]
 
 instance Eq Client where (==) c1 c2 = clientId c1 == clientId c2
 

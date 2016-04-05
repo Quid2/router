@@ -6,11 +6,9 @@ import           Data.Default
 import           Text.Pandoc.Builder
 import           Text.Pandoc.Writers.HTML
 import           Text.Pandoc.Writers.Markdown
--- import Data.Monoid
+import Data.Time.Util
 import System.Posix.Process(getProcessID,getProcessTimes,ProcessTimes(..))
 -- import System.Linux.Proc(getProcessStatus)
-import Data.Time.Clock
-import Data.Time.Format
 
 
 data Report = Report {reportTitle::Inlines
@@ -57,9 +55,6 @@ asText r = writePlain def <$> asPandoc r
 
 asHTML :: Report -> IO String
 asHTML r = writeHtmlString def <$> asPandoc r
-
-timeDateTime = timeF "%F %H:%M.%S"
-timeF format = fmap (formatTime defaultTimeLocale format) getCurrentTime
 
 deriving instance Show ProcessTimes
 

@@ -36,7 +36,7 @@ import Control.Concurrent.STM
 import Data.Foldable (toList)
 import Data.List
 import Data.Maybe
-import Network.Router.API hiding (Config,first)
+import Network.Quid2 hiding (Config,first)
 import Network.Router.Types
 import Network.Router.Echo
 import Network.Router.ByType
@@ -62,13 +62,10 @@ killall -s SIGKILL quid2-net; /root/.cabal/bin/quid2-net > /dev/null 2>&1 &
  https:443
  /ws       Accept WebSocket clients.
 
- Convert all messages to a common format and send them down the pipe.
-
- The pipe consumer (a router) sends back messages to send to one of the outputs.
+Max number of connections limited by ulimit -n , 1024 on Linux 256 on OSx
 
 Vulnerabilities:
-- no protection against denial of service attacks
-  --- high number of connections
+- no protection against denial of service attacks?
   --- huge messages
 -}
 
@@ -95,8 +92,8 @@ setup cfg = do
   --asText serverReport >>= dbg1
 
   sapp :: Network.Wai.Application <- scottyApp $ do
-    middleware logStdoutDev
-    get "/" $ liftIO (T.pack <$> asHTML serverReport) >>= html
+     middleware logStdoutDev
+     get "/" $ liftIO (T.pack <$> asHTML serverReport) >>= html
 
   let warpOpts = Warp.setOnClose onClose . Warp.setOnOpen onOpen . Warp.setPort 8080 . Warp.setTimeout 60 $ Warp.defaultSettings
 
@@ -127,7 +124,10 @@ application st routers pending = do
        let bs = toList protBytes
        dbg ["got router type",show protType,show protBytes,show bs]
        case M.lookup rType routers of
-        Just router -> connNum st >>= routerHandler router vType bs . (`Client` conn)
+        Just router -> do
+          n <- connNum st
+          client <- newClient n conn
+          routerHandler router vType bs client
         Nothing -> done ["Unsupported Quid2 Protocol",show protType]
  where
         failure conn reasons = do

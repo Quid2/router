@@ -20,7 +20,7 @@ newByTypeRouter = do
     where
       report_ state = report "ByType Router" [
         ("Open Connections"
-        ,bulletList . map (p . show) <$> (allConns state)
+        ,bulletList . map (p . show) <$> allConns state
         )]
 
       allConns = atomically . T.toList . SMM.stream
@@ -28,13 +28,12 @@ newByTypeRouter = do
       handler_ :: ByTypeState -> AbsType -> [Word8] -> Client -> IO ()
       handler_ st t bs client = do
         let ByType :: ByType () = decodeOK bs
-        let conn = clientConn client
         liftIO $ dbg ["Protocol",show t,show client]
         atomically $ SMM.insert client t st
         loop (atomically $ SMM.delete client t st) $ do
-          msg <- receiveMsg conn
+          msg <- fromClient client
           dbg [show t,"IN",show . L.unpack $ msg]
           -- send to all but the message sender
           cs <- filter (/= client) <$> (atomically $ T.toList $ SMM.streamByKey t st)
           dbg [show t,"TO",show cs]
-          mapM_ (\c -> sendMsg (clientConn c) msg) cs
+          mapM_ (\c -> toClient c msg) cs

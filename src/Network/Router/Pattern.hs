@@ -35,28 +35,3 @@ instance Hashable ClassFiltered
 
 type ClassFilteredState = SMM.Multimap Name Client -- Multiple clients per hub
 
-newRouter = do
-  state <- SMM.newIO
-  return $ Router (absType (Proxy::Proxy ClassFiltered)) (report_ state) (handler_ state)
-
-    where
-      report_ state = report "ClassFiltered Router" [("Open Conns",p . show <$> (atomically . T.toList . SMM.stream $ state))]
-
-      handler_ st bs client = do
-        let hub@(ClassFiltered hubName pat) = dec bs
-        let conn = clientConn client
-        liftIO $ dbg ["Protocol HUB",show hub,show client]
-        atomically $ SMM.insert client hubName st
-        loop (atomically $ SMM.delete client hubName st) $ do
-          msg <- receiveMsg conn
-          dbg [show hub,"IN",show . L.unpack $ msg]
-          -- send to all but the message sender
-          cs <- filter (/= client) <$> (atomically $ T.toList $ SMM.streamByKey hubName st)
-          dbg [show hub,"TO",show cs]
-          mapM_ (\c -> sendMsg (clientConn c) msg) cs
-
---runClient :: HasModel a => Proxy a -> PatQ ->  (Connection -> IO r) -> IO r
-runClient proxy pat client = runWSClient $ \conn -> do
-  protocol conn (ClassFiltered (absType proxy) pat)
-  client conn
-
