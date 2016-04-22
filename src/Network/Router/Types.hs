@@ -1,10 +1,10 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances ,DeriveGeneric #-}
 module Network.Router.Types(
   Routers,Router(..),router
-  ,Client,newClient,fromClient,toClient
+  ,Client,newClient,fromClient,toClient,asClientReport
   ,Word8
   ,module X) where
-
+import Data.Flat
 import Data.Typed
 import Data.Word
 import Pandoc.Report as X
@@ -17,21 +17,21 @@ import GHC.Generics
 import Data.Typeable
 import Data.Time.Clock
 import Network.Quid2.Util
+import qualified Data.ByteString.Lazy as L
+import Report as X
+import Data.Time.Util
 
 type Routers = M.Map AbsType Router
 
 data Router = Router {
   routerKey    :: AbsType
-  ,routerReport :: Report
   ,routerHandler :: Handler
+  ,routerReport :: Report
+  ,routerBinaryReport::IO (NestedReport TypedBytes)
   }
 
 type Handler = AbsType -> [Word8] -> Client -> IO ()
 
-router
-  :: Model a =>
-     Proxy a
-     -> Report -> Handler -> Router
 router proxy = let (TypeApp r _) = absType proxy
                in Router r
 
@@ -39,14 +39,19 @@ newClient n conn = do
   t <- getCurrentTime
   return $ Client n conn t
 
+asClientReport c = ClientReport (clientId c) (toTime . clientOpenTime $ c)
+
 data Client = Client {
    clientId::Integer -- A unique value for the current server run
    ,clientConn::WS.Connection
    ,clientOpenTime::UTCTime
   }
 
-fromClient = receiveMsg . clientConn
-toClient = sendMsg . clientConn
+fromClient :: Client -> IO L.ByteString
+fromClient = WS.receiveData . clientConn
+
+toClient :: Client -> L.ByteString -> IO ()
+toClient = WS.sendBinaryData . clientConn
 
 instance Show Client where show c = unwords ["Client",show $ clientId c,show $ clientOpenTime c]
 

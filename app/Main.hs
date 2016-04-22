@@ -5,7 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TupleSections        #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE TypeSynonymInstances ,DeriveGeneric #-}
 module Main where
 
 import           Control.Concurrent                   (MVar, modifyMVar,
@@ -42,6 +42,7 @@ import Network.Router.Echo
 import Network.Router.ByType
 -- import System.Log
 import System.Directory
+import Data.Time.Util
 
 {-
 SOL: start manually as (already done by propellor):
@@ -88,17 +89,24 @@ setup cfg = do
   byTypeRouter <- newByTypeRouter
   let routers = [echoRouter,byTypeRouter]
   let routersMap = foldr (\r -> M.insert (routerKey r) r) M.empty routers
-  serverReport <- newServiceReport serviceName __DATE__ __TIME__ (warpReport warpState : map routerReport routers)
+  let version = unwords [__DATE__,__TIME__]
+  startupTime <- getCurrentTime
+  serverReport <- newServiceReport serviceName version startupTime (warpReport warpState : map routerReport routers)
   --asText serverReport >>= dbg1
 
   sapp :: Network.Wai.Application <- scottyApp $ do
-     middleware logStdoutDev
+     middleware logStdoutDev -- NOTE: output on stdout, not log file
      get "/" $ liftIO (T.pack <$> asHTML serverReport) >>= html
+     get "/report" $ do
+       r <- liftIO (flat <$> warpBinaryReport version startupTime warpState (mapM routerBinaryReport routers))
+       setHeader "Access-Control-Allow-Origin" "*"
+       setHeader "Content-Type" "application/octet-stream"
+       raw r
 
   let warpOpts = Warp.setOnClose onClose . Warp.setOnOpen onOpen . Warp.setPort 8080 . Warp.setTimeout 60 $ Warp.defaultSettings
 
   connCounter <- newMVar 0
-  Warp.runSettings warpOpts $ WaiWS.websocketsOr WS.defaultConnectionOptions (application connCounter $ routersMap) sapp -- staticApp
+  Warp.runSettings warpOpts $ WaiWS.websocketsOr (WS.defaultConnectionOptions {WS.connectionOnPong=dbgS "Pong!"}) (application connCounter $ routersMap) sapp -- staticApp
 
 -- Embedded static files
 -- staticApp :: Network.Wai.Application
@@ -118,6 +126,7 @@ application st routers pending = do
     when (isNothing (find (== "quid2.net") (WS.getRequestSubprotocols r))) $ done ["Client must support WS protocol 'quid2.net'"]
 
     eProt <- WS.receiveData conn :: IO L.ByteString
+    dbg ["header",show $ L.unpack eProt]
     case (unflat eProt) of
      Left e -> done ["Bad protocol type data",show e]
      Right (TypedBytes protType@(TypeApp rType vType) protBytes) -> do
@@ -127,6 +136,7 @@ application st routers pending = do
         Just router -> do
           n <- connNum st
           client <- newClient n conn
+          WS.forkPingThread conn 20
           routerHandler router vType bs client
         Nothing -> done ["Unsupported Quid2 Protocol",show protType]
  where
@@ -138,7 +148,7 @@ application st routers pending = do
 connNum c = modifyMVar c (\n -> return (n+1,n))
 
  -- Number of opened and closed connections
-type WarpState = MVar (Integer,Integer) 
+type WarpState = MVar (Word64,Word64) 
 
 newWarpState = newMVar (0,0)
 
@@ -146,9 +156,19 @@ connOpened warpState = modifyMVar_ warpState (return . first (+1))
 
 connClosed warpState =  modifyMVar_ warpState (return . second (+1))
 
-warpReport :: (Show b, Num b) => MVar (b, b) -> Report
+warpReport :: WarpState -> Report
 warpReport warpState = report "Warp Server"
                        [("Currently open connections"  ,p . show . (\(o,c) -> o-c) <$> readMVar warpState)
                        ,("Closed Connections",p . show . snd <$> readMVar warpState)
                        ]
+
+warpBinaryReport
+  :: String
+     -> UTCTime
+     -> WarpState
+     -> IO [NestedReport TypedBytes] -> IO (NestedReport TypedBytes)
+warpBinaryReport version startupTime warpState subs = do
+  (o,c) <- readMVar warpState
+  NestedReport "Warp" (typedBytes $ WarpReport version (toTime startupTime) o c) <$> subs
+
 

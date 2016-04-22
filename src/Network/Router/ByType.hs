@@ -8,6 +8,7 @@ import qualified Data.ByteString.Lazy   as L
 import qualified ListT                                as T
 import qualified STMContainers.Set                    as S
 import qualified STMContainers.Multimap               as SMM
+import Data.Bifunctor
 
 -- instance Hashable ByType
 
@@ -15,9 +16,14 @@ type ByTypeState = SMM.Multimap AbsType Client -- Multiple clients per hub
 
 newByTypeRouter = do
   state <- SMM.newIO
-  return $ router (Proxy::Proxy (ByType ())) (report_ state) (handler_ state)
+  return $ router (Proxy::Proxy (ByType ())) (handler_ state) (report_ state) (reportTyped state)
 
     where
+
+      reportTyped state = do
+         r <- typedBytes . ByTypeReport . map (second asClientReport) <$> allConns state
+         return $ NestedReport "ByType" r []
+
       report_ state = report "ByType Router" [
         ("Open Connections"
         ,bulletList . map (p . show) <$> allConns state

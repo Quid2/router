@@ -15,24 +15,35 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Data.Time.Util,Network.Router.ByType,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Quid2.Util.Dir,Quid2.Util.Service
+  exposed-modules:     Data.Time.Util,Network.Router.ByType,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Quid2.Util.Dir,Quid2.Util.Service,Report
   build-depends:       base >= 4.7 && < 5
-                     , bytestring,stm,stm-containers>=0.2.4,hashable,containers,list-t
-                     , transformers >= 0.4
-                     , websockets
+                     , bytestring
+                     , containers
                      , data-default
-                     , pandoc
-                     , pandoc-types
-                     , unix
-                     , time
-                     , hdaemonize
-                     , hslogger
+                     , deepseq >= 1.4.1.1
                      , directory
                      , filepath
-                     , strict
-                     , model,flat,typed
+                     , flat
+                     , ghc
+                     , ghc-paths
+                     , hashable
+                     , hdaemonize
+                     , hslogger
+                     , list-t
+                     , model
+                     , pandoc
+                     , pandoc-types
+                     , plugins
                      , quid2-net
-                     ,ghc,ghc-paths,timeit,plugins
+                     , stm
+                     , stm-containers>=0.2.4
+                     , strict
+                     , time
+                     , timeit
+                     , transformers >= 0.4
+                     , typed
+                     , unix
+                     , websockets
   default-language:    Haskell2010
 
 executable quid2.net
@@ -64,7 +75,7 @@ executable quid2-repo
   hs-source-dirs:      app
   main-is:             Repo.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-  other-modules:       Repo.DB,Repo.Types
+  other-modules:       Repo.DB
   build-depends:       base
                      , bytestring
                      , hslogger

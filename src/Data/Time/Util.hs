@@ -1,9 +1,36 @@
-module Data.Time.Util where
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DeriveGeneric ,NoMonomorphismRestriction #-} 
+
+module Data.Time.Util(timeDateTime,stdTimeF,formatT,timeF,Time(..),toTime,fromTime,UTCTime,getCurrentTime) where
+
 import           Data.Time.Clock
 import           Data.Time.Format
+import Data.Time.Calendar
+import Data.Word
+import GHC.Generics
 
 timeDateTime :: IO String
-timeDateTime = timeF "%F %H:%M.%S"
+timeDateTime = timeF stdTimeF
+stdTimeF = "%F %H:%M.%S"
+
+americanTimeF = "%b %d %Y %H:%M:%S"
+
+formatT :: FormatTime t => String -> t -> String
+formatT = formatTime defaultTimeLocale
 
 timeF :: String -> IO String
-timeF format = fmap (formatTime defaultTimeLocale format) getCurrentTime
+timeF format = fmap (formatT format) getCurrentTime
+
+-- deriving instance Show UTCTime
+
+data Time = Time {
+   -- |Modified Julian Day, standard count of days, with zero being the day 1858-11-17
+   utcDay::Integer
+   -- | Seconds from midnight, 0 <= t < 86401s (because of leap-seconds)
+   ,utcSecs::Word32
+   } deriving (Eq,Ord,Show,Generic)
+
+toTime :: UTCTime -> Time
+toTime utcTime = Time (toModifiedJulianDay . utctDay $ utcTime) (toEnum . fromEnum . (/1000000000000) . utctDayTime $ utcTime)
+
+fromTime t = UTCTime (ModifiedJulianDay $ utcDay t) (secondsToDiffTime . fromIntegral . utcSecs  $ t)

@@ -25,17 +25,10 @@ import           Repo.Types
 import           System.Timeout
 import           Text.Blaze.Html.Renderer.Text
 import           Text.Blaze.Html5                     hiding (html, main, map,
-                                                       param,head)
+                                                       param,head,input,output)
 import qualified Text.Blaze.Html5                     as H
 import           Text.Blaze.Html5.Attributes          hiding (async)
 import           Web.Scotty
-
-t = do
-  -- record (Proxy::Proxy Repo)
-  -- solve (Proxy::Proxy Repo)
-  -- let local = def {ip="127.0.0.1",port=8080}  
-  record def (Proxy::Proxy Char)
-  solve def (Proxy::Proxy Char)
 
 main = initService "quid2-repo" setup
 
@@ -60,7 +53,7 @@ setup cfg = do
         out <- liftIO $ do
           DBState env <- wholeDB db
           madt <- getDB db key
-          return $ maybe "Unknown type" (renderHtml . pre . fromString . concatMap ppr . stringADTs env) madt
+          return $ maybe "Unknown type" (renderHtml . pre . fromString . ppr . (env,)) madt
         html out
 
   let warpOpts = Warp.setPort 8000 . Warp.setTimeout 60 $ Warp.defaultSettings
@@ -80,31 +73,20 @@ setup cfg = do
         msg <- await
         case msg of
           Record adt -> lift $ putDB db (absRef adt) adt
+
+          AskDataTypes -> do
+            vs <- lift $ (\(DBState env) -> M.assocs env) <$> wholeDB db
+            yield . KnownDataTypes $ vs
+
           Solve typ -> do
             rs <- lift $ mapM (\r -> (r,) <$> getDB db r) . nub . toList $ typ
             let errs = map fst . filter (isNothing . snd) $ rs
             yield . Solved typ $ if null errs
                                  then Right (map (second fromJust) rs)
                                  else Left $ unwords ["Unknown types:",show errs]
+          _ -> return ()
+
         agent db
-
--- record :: Model a => Proxy a -> IO ()
-record cfg proxy = runClient cfg ByType $ \conn -> mapM_ (send conn . Record) . absADTs $ proxy
-
--- solve :: Model a => Proxy a -> IO (Either String [(AbsRef, AbsADT)])
-solve cfg proxy = runClient cfg ByType $ \conn -> do
-
-  let typ = absType proxy
-  send conn (Solve typ)
-
-  let loop = do
-        msg <- receive conn
-        case msg of
-          Solved t r | t == typ -> return r
-          _ -> loop
-
-  fromMaybe (Left "Timeout") <$> timeout (seconds 30) loop
-
 
 -- pp = head . toList . snd . head . M.elems . snd $ absTypeEnv (Proxy :: Proxy (Bool))
 ppr = render . pPrint

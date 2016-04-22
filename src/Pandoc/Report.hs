@@ -23,17 +23,15 @@ report title rs = Report (str title) rs []
 newServiceReport
   :: String
      -> String
-     -> String
+     -> UTCTime
      -> [Report] --  [(String,Reporter)]
      -> IO Report
-newServiceReport serviceName versionMajor versionMinor rs =  do
-    t <- timeDateTime
-
+newServiceReport serviceName version startTime rs =  do
     let title = "Service " <> str serviceName
-
+    let t = formatT stdTimeF startTime
     --return $ Report (setTitle title . doc) $ [
     return $ Report title [
-       ("Version",return . p $ versionMajor <> " " <> versionMinor)
+       ("Version",return . p $ version)
       ,("Started up at",return . p $  t)
       ,("Report generated at",p <$> timeDateTime)
       ,("Process Times",p. show <$> getProcessTimes)

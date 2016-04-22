@@ -11,10 +11,16 @@ import qualified STMContainers.Set                    as S
 -- PROB: debug option can be used for a denied service attack
 newEchoRouter = do
    state <- S.newIO
-   return $ router (Proxy::Proxy (Echo ())) (report_ state) (handler_ state)
+   return $ router (Proxy::Proxy (Echo ())) (handler_ state) (report_ state) (reportTyped state)
 
      where
-       report_ state = report "Echo Router" [("Open Connections",bulletList . map (p . show) <$> (atomically . T.toList . S.stream $ state))]
+       reportTyped state = do
+         r <- typedBytes . map asClientReport <$> allConns state
+         return $ NestedReport "Echo" r []
+
+       report_ state = report "Echo Router" [("Open Connections",bulletList . map (p . show) <$> allConns state)]
+
+       allConns = atomically . T.toList . S.stream
 
        handler_ state t echoBytes client = do
          dbg ["Protocol ECHO started",show echoBytes]
