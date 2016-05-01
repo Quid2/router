@@ -172,3 +172,4 @@ warpBinaryReport version startupTime warpState subs = do
   NestedReport "Warp" (typedBytes $ WarpReport version (toTime startupTime) o c) <$> subs
 
 
+-- t = absType (Proxy::Proxy WarpReport)

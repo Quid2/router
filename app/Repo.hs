@@ -30,6 +30,8 @@ import qualified Text.Blaze.Html5                     as H
 import           Text.Blaze.Html5.Attributes          hiding (async)
 import           Web.Scotty
 
+u = recordType def (Proxy::Proxy Repo)
+
 main = initService "quid2-repo" setup
 
 setup :: Quid2.Util.Service.Config () -> IO ()
@@ -62,7 +64,8 @@ setup cfg = do
     where
 
       dbIndex db = do
-            table . mconcat . (tr (mconcat [th "Types",th "Unique Code"]) :) . map (\(adtS,r) -> tr $ mappend (td . toHtml $ a ! href (fromString $ "/type/"++ ppr r) $ toHtml adtS) (td . toHtml . ppr $ r)) . sortBy (comparing fst) . map (\(r,adt) -> (adtName adt,r)) . M.toList $ db
+            table . mconcat . (tr (mconcat [th "Types",th "Unique Code"]) :) . map (\(adtS,r) -> tr $ mappend (td . toHtml $ a ! href (fromString $ "/type/"++ ppr r) $ toHtml adtS) (td . toHtml . ppr $ r)) . sortBy (comparing fst) . map (\(r,adt) -> (declName adt,r)) . M.toList $ db
+            -- table . mconcat . (tr (mconcat [th "Types",th "Unique Code"]) :) . map (\(adtS,r) -> tr $ mappend (td . toHtml $ a ! href (fromString $ "/type/"++ ppr r) $ toHtml adtS) (td . toHtml . ppr $ r)) . sortBy (comparing fst) . map (\(r,adt) -> (adtName adt,r)) . M.toList $ db
             p $ mconcat [b "NOTE:"," The way the Types' unique codes are calculated will change and should not be relied upon."]
             -- table . mconcat . (tr (mconcat [th "Type(s)"]) :) . map (\(adtS,r) -> tr (td . toHtml $ a ! href (fromString $ "/type/"++ ppr r) $ toHtml adtS)) . sortBy (comparing fst) . map (\(r,adt) -> (adtName adt,r)) . M.toList $ db
          -- table . mconcat . (tr (mconcat [th "Types"]) :) . map (\(adtS,r) -> tr (td . toHtml $ a ! href (fromString $ "/type/"++ ppr r) $ toHtml adtS)) . sortBy (comparing fst) . map (\(r,adt) -> (adtName adt,r)) . M.toList $ db

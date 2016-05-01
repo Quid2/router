@@ -243,7 +243,7 @@ solver t = second adtName . refByExt t
 refByExt :: AbsRef -> AbsEnv -> (AbsRef,AbsADT)
 refByExt r = fromJust . find ((r==) . fst) . M.elems
 
-adtName = declName . relADT
+mutualAdtName = declName . relADT
 
 write f content = do
   createDirectoryIfMissing True (takeDirectory f)
