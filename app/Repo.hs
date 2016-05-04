@@ -13,20 +13,16 @@ import qualified Data.Map                             as M
 import           Data.Maybe
 import           Data.Ord
 import           Data.String
--- import           Data.Typed 
-import           Data.Word
-import           Network.Quid2                        hiding ((<>),solve)
+import           Network.Quid2                        hiding (solve, (<>))
 import qualified Network.Wai
 import qualified Network.Wai.Handler.Warp             as Warp
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Quid2.Util.Service
 import           Repo.DB
 import           Repo.Types
-import           System.Timeout
 import           Text.Blaze.Html.Renderer.Text
-import           Text.Blaze.Html5                     hiding (html, main, map,
-                                                       param,head,input,output)
-import qualified Text.Blaze.Html5                     as H
+import           Text.Blaze.Html5                     hiding (head, html, input,
+                                                       main, map, output, param)
 import           Text.Blaze.Html5.Attributes          hiding (async)
 import           Web.Scotty
 

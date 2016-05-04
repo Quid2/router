@@ -18,7 +18,7 @@ import Data.Typeable
 import Data.Time.Clock
 import Network.Quid2.Util
 import qualified Data.ByteString.Lazy as L
-import Report as X
+import Model.Report as X
 import Data.Time.Util
 
 type Routers = M.Map AbsType Router

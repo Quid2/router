@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 -- Data model for reports returned by the quid2.net server
-module Report (NestedReport(..),WarpReport(..),ByTypeReport(..),ClientReport(..),Time(..)) where
+module Model.Report (NestedReport(..),WarpReport(..),ByTypeReport(..),ClientReport(..),Time(..)) where
 import Data.Time.Util
 import Data.Time.Clock
 import Data.Typed

@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Data.Time.Util,Network.Router.ByType,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Quid2.Util.Dir,Quid2.Util.Service,Report
+  exposed-modules:     Data.Time.Util,Network.Router.ByType,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Quid2.Util.Dir,Quid2.Util.Service,Model.Report
   build-depends:       base >= 4.7 && < 5
                      , bytestring
                      , containers
@@ -103,3 +103,8 @@ executable quid2-repo
 source-repository head
   type:     git
   location: https://github.com/tittoassini/router
+
+
+
+
+
