@@ -10,7 +10,7 @@ packages:
 - ../model
 - ../flat
 - ../typed
-- ../quid2-net
+- ../top
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps: [hslogger-1.2.9,plugins-1.5.5.0,ed25519-0.0.5.0]

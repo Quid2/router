@@ -34,7 +34,7 @@ library
                      , pandoc
                      , pandoc-types
                      , plugins
-                     , quid2-net
+                     , top
                      , stm
                      , stm-containers>=0.2.4
                      , strict
@@ -67,7 +67,7 @@ executable quid2.net
                      --, xformat
                      , scotty>=0.7.2
                      , stm,transformers
-                     , typed, quid2-net,router
+                     , typed, top,router
 
   default-language:    Haskell2010
 
@@ -81,7 +81,7 @@ executable quid2-repo
                      , hslogger
                      , text
                      , containers,acid-state,safecopy,filepath,mtl,blaze-html,warp,wai,wai-extra,scotty
-                     , typed, quid2-net,router
+                     , typed, top,router
 
   default-language:    Haskell2010
 
@@ -95,7 +95,7 @@ executable quid2-repo
 --                      , hslogger
 --                      , text
 --                      , containers,acid-state,safecopy,filepath,mtl
---                      , typed, quid2-net,router,flat,transformers,websockets,ghc,ghc-paths,timeit,plugins
+--                      , typed, top,router,flat,transformers,websockets,ghc,ghc-paths,timeit,plugins
 
 --   default-language:    Haskell2010
 
