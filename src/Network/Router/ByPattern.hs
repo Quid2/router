@@ -3,11 +3,10 @@ module Network.Router.ByPattern where
 
 import Network.Router.Util
 import Network.Router.Types
-
 import qualified Data.ByteString.Lazy   as L
 import qualified ListT                                as T
 import qualified STMContainers.Set                    as S
-import qualified STMContainers.Multimap               as SMM
+import qualified STMContainers.Multimap             as SMM
 
 instance Hashable ByPattern
 instance Hashable v => Hashable (Pattern v)
@@ -37,3 +36,4 @@ newByPatternRouter = do
           cs <- filter (/= client) <$> (atomically $ T.toList $ SMM.streamByKey hubName st)
           dbg [show hub,"TO",show cs]
           mapM_ (\c -> sendMsg (clientConn c) msg) cs
+

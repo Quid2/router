@@ -1,30 +1,36 @@
-{-# LANGUAGE TemplateHaskell ,ScopedTypeVariables ,NoMonomorphismRestriction #-}
-module Data.Typed.ToHaskellTest where
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE TemplateHaskell           #-}
+module Data.Pattern.ToHaskellTest where
 
 -- import Test.Data
 -- import Test.Data.Model
 -- import Test.Data.Flat
-import Data.Model
-import Data.Typed
-import Data.Typed.ToHaskell
-import Data.Flat
-import Network.Bot.Chat.Model
-import Data.Pattern
+import           Data.Flat
+import           Data.Model
+import           Data.Pattern.ToHaskell
+import           Data.Typed
+-- import Network.Bot.Chat.Model
+import           Data.Pattern.Types
 --import Language.Haskell.TH
 -- import Language.Haskell.TH.Syntax
 --import qualified QQ.Pattern.ABC as ABC
-import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Lazy   as L
 --import qualified QQ.Pattern.P1 as P1
-import Data.Typed.GHC
-
+-- import Data.Typed.GHC
+import Data.Pattern.Test
+pattern
 t = main
 
- main = do
+srcDir = "/Users/titto/workspace/quid2-qq/src"
+
+
+main = do
   updateGlobalLogger rootLoggerName $ setLevel DEBUG -- INFO
   pat1
 
 -- main2 = do
---     -- r <- timeIt $ load (srcDir ++"/QQ/Pattern/Pb4a6a541b061.o") [srcDir] ["/Applications/ghc-7.10.3.app/Contents/lib/ghc-7.10.3/package.conf.d","/Users/titto/.ghc/x86_64-darwin-7.10.3/package.conf.d"] "match" 
+--     -- r <- timeIt $ load (srcDir ++"/QQ/Pattern/Pb4a6a541b061.o") [srcDir] ["/Applications/ghc-7.10.3.app/Contents/lib/ghc-7.10.3/package.conf.d","/Users/titto/.ghc/x86_64-darwin-7.10.3/package.conf.d"] "match"
 --    -- compileModule srcDir ["base","bytestring","flat","typed","quid2-qq"] "QQ.Pattern.Pb4a6a541b061"
 --    -- r <- t
 --    -- print r
@@ -34,7 +40,7 @@ t = main
 --       LoadFailure msg -> print msg
 --       LoadSuccess m v -> print "OK"
 
-srcDir = "/Users/titto/workspace/quid2-qq/src"
+-- srcDir = "/Users/titto/workspace/quid2-qq/src"
 
 -- pat0 = patTst (Proxy :: Proxy N) [p|Four|] [One,Two,Three,Four,Five]
 pat1 = patternTst (Proxy :: Proxy Char) [p|_|] ['a'..'z']
@@ -49,7 +55,7 @@ pat3 = patternTst (Proxy :: Proxy Message) [p|Message "john" (Subject _) _|]
 patternTst :: forall a . (Show a,Model a, Flat a) => Proxy a -> Q Pat -> [a] -> IO ()
 patternTst typ patt vs = do
   pat <-  patternQ patt
-  patMdl <- writePattern typ pat
+  patMdl <- writePattern srcDir typ pat
   compileModule srcDir ["base","bytestring","flat"] patMdl
   let bss = map encoded vs
   print bss

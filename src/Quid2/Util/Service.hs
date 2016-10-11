@@ -26,11 +26,11 @@ import Quid2.Util.Dir
 data Config c = Config {
   -- runMode::RunMode
   -- pname :: String
-  privateKeyFile :: FilePath   
+  privateKeyFile :: FilePath
   ,stateDir :: FilePath
   ,logDir ::  FilePath
   ,tmpDir ::  FilePath
-  ,appConf :: Maybe c   
+  ,appConf :: Maybe c
   } deriving (Show)
 
 data RunMode = Interactive -- Running in a GHCi session
@@ -77,49 +77,51 @@ doMain name realMain mode args = do
     userID <- getRealUserID
     home <- fmap homeDirectory $ getUserEntryForID userID
     let configFile = home </> ("." ++ name ++ ".conf")
-    let appDir = home </> '.' : name        
-    let stateDir = appDir </> "state" 
+    let appDir = home </> '.' : name
+    let stateDir = appDir </> "state"
     let logDir   = appDir </> "log"
-    let tmpDir   = appDir </> "tmp"                                     
-    let logFile  = logDir </> "debug.txt"      
+    let tmpDir   = appDir </> "tmp"
+    let logFile  = logDir </> "debug.txt"
     let privFile = home </> "privateKey.quid2"
     mkDir stateDir
     mkDir logDir
     makeNewDir tmpDir
     setupLog name mode logFile
-    dbg $ "HOME: " ++ home
-    
-    -- TODO: better error reporting.
-    conf <- if mode /= Service && length args == 1               
-            -- read conf from command line
-            then return . Just . read . head $ args 
-            else do     
-              mconf <- try (readFile configFile)        
-              return $ either (\(e::IOException) -> Nothing) (Just . read) mconf
-    when (isNothing conf) $ dbg "No configuration provided."    
+    -- when run with sudo on osx the home dir is "/var/root"
+    -- print $ "HOME: " ++ home
 
-    -- Any exception will cause a restart    
+    -- TODO: better error reporting.
+    conf <- if mode /= Service && length args == 1
+            -- read conf from command line
+            then return . Just . read . head $ args
+            else do
+              mconf <- try (readFile configFile)
+              return $ either (\(e::IOException) -> Nothing) (Just . read) mconf
+    when (isNothing conf) $ dbg "No configuration provided."
+
+    -- Any exception will cause a restart
     let cfg = Config {stateDir=stateDir,logDir=logDir,tmpDir=tmpDir,privateKeyFile=privFile,appConf=conf}
 
-    handle (\(e::SomeException) -> fatalErr (show e)) $ realMain cfg    
+    handle (\(e::SomeException) -> fatalErr (show e)) $ realMain cfg
 
 setupLog name mode logFile = do
-    -- Setup log    
+    --print mode
+    -- Setup log
     updateGlobalLogger rootLoggerName  (setLevel $ if mode /= Service then DEBUG else INFO) -- DEBUG) -- INFO
 
     -- E.catch (removeFile logFile) (\e -> return ())
     -- On disk, register everything. 
     h <- if mode == Interactive -- /= Service
          then verboseStreamHandler stderr DEBUG
-         else fileHandler logFile DEBUG >>= \h -> return $ setFormatter h (simpleLogFormatter "[$time : $loggername : $prio] $msg")              
+         else fileHandler logFile DEBUG >>= \h -> return $ setFormatter h (simpleLogFormatter "[$time : $loggername : $prio] $msg")
     updateGlobalLogger rootLoggerName (setHandlers [h])
-    
-    -- The net logger, sends only relevant stuff. 
-    -- logh <- logger NOTICE                       
+
+    -- The net logger, sends only relevant stuff.
+    -- logh <- logger NOTICE
     logh <- openlog name [PID] DAEMON WARNING
     updateGlobalLogger rootLoggerName (addHandler logh)
 
-    warningM "Quid2.Util.Service" $ "Starting: " ++ name 
+    warningM "Quid2.Util.Service" $ "Starting: " ++ name
 
 mkDir = createDirectoryIfMissing True
 

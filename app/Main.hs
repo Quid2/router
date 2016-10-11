@@ -1,22 +1,40 @@
 -- -*- mode:org;mode:haskell; -*-
 {-# LANGUAGE CPP                  #-}
+{-# LANGUAGE DeriveGeneric        #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TupleSections        #-}
-{-# LANGUAGE TypeSynonymInstances ,DeriveGeneric #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 module Main where
 
+import           Control.Applicative
 import           Control.Concurrent                   (MVar, modifyMVar,
                                                        modifyMVar_, newMVar,
                                                        readMVar)
+import           Control.Concurrent.STM
 import           Control.Exception                    (fromException, handle)
 import           Control.Monad
-
+import           Control.Monad.IO.Class
+import           Data.Bifunctor
+import qualified Data.ByteString.Char8
 import qualified Data.ByteString.Lazy                 as L
 import           Data.FileEmbed                       (embedDir)
-import qualified Data.Text.Lazy                       as T
+import           Data.Foldable                        (toList)
+import           Data.List
+import qualified Data.Map.Strict                      as M
+import           Data.Maybe
+import qualified Data.Text                            as T
+import qualified Data.Text.Lazy                       as TL
+import           Data.Time.Util
+import           Data.Typed                           hiding (first)
+import           Data.Word
+import           Network.Router.ByType
+import           Network.Router.Echo
+import           Network.Router.Types
+import           Network.Top                          hiding (Config, first)
+import qualified Network.Top                          as Top
 import qualified Network.Wai
 import qualified Network.Wai.Application.Static       as Static
 import qualified Network.Wai.Handler.Warp             as Warp
@@ -25,24 +43,9 @@ import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import qualified Network.WebSockets                   as WS
 import           Pandoc.Report
 import           Quid2.Util.Service
+import           System.Directory
+import           Util
 import           Web.Scotty
-import qualified Data.Map.Strict                      as M
-import           Data.Word
-import           Control.Applicative
-import Data.Typed hiding (first)
-import Data.Bifunctor
-import Control.Monad.IO.Class
-import Control.Concurrent.STM
-import Data.Foldable (toList)
-import Data.List
-import Data.Maybe
-import Network.Quid2 hiding (Config,first)
-import Network.Router.Types
-import Network.Router.Echo
-import Network.Router.ByType
--- import System.Log
-import System.Directory
-import Data.Time.Util
 
 {-
 SOL: start manually as (already done by propellor):
@@ -56,7 +59,7 @@ killall -s SIGKILL quid2-net; /root/.cabal/bin/quid2-net > /dev/null 2>&1 &
 
  Hosts all endpoints that require a fixed url address.
 
- http:80
+ http:80nb
  /  Return activity report.
 ?? /hook    HTTP call backs.
 
@@ -74,6 +77,8 @@ serviceName = "quid2.net"
 
 main = initService serviceName setup
 
+-- data RouterConfig = RouterConfig
+
 setup :: Config () -> IO ()
 setup cfg = do
   updateGlobalLogger rootLoggerName $ setLevel DEBUG -- INFO
@@ -89,24 +94,25 @@ setup cfg = do
   byTypeRouter <- newByTypeRouter
   let routers = [echoRouter,byTypeRouter]
   let routersMap = foldr (\r -> M.insert (routerKey r) r) M.empty routers
-  let version = unwords [__DATE__,__TIME__]
+  let version = unwords [__DATE__,__TIME__,"(compiler local time)"]
   startupTime <- getCurrentTime
   serverReport <- newServiceReport serviceName version startupTime (warpReport warpState : map routerReport routers)
   --asText serverReport >>= dbg1
 
   sapp :: Network.Wai.Application <- scottyApp $ do
-     middleware logStdoutDev -- NOTE: output on stdout, not log file
-     get "/" $ liftIO (T.pack <$> asHTML serverReport) >>= html
+     -- middleware logStdoutDev -- NOTE: output on stdout, not log file
+     get "/" $ liftIO (TL.pack <$> asHTML serverReport) >>= html
      get "/report" $ do
        r <- liftIO (flat <$> warpBinaryReport version startupTime warpState (mapM routerBinaryReport routers))
        setHeader "Access-Control-Allow-Origin" "*"
        setHeader "Content-Type" "application/octet-stream"
        raw r
 
-  let warpOpts = Warp.setOnClose onClose . Warp.setOnOpen onOpen . Warp.setPort 8080 . Warp.setTimeout 60 $ Warp.defaultSettings
+  let warpOpts = Warp.setLogger noRequestLogger . Warp.setOnClose onClose . Warp.setOnOpen onOpen . Warp.setPort 80 . Warp.setTimeout 60 $ Warp.defaultSettings
+  -- let warpOpts =  Warp.setOnClose onClose . Warp.setOnOpen onOpen . Warp.setPort 80 . Warp.setTimeout 60 $ Warp.defaultSettings
 
   connCounter <- newMVar 0
-  Warp.runSettings warpOpts $ WaiWS.websocketsOr (WS.defaultConnectionOptions {WS.connectionOnPong=dbgS "Pong!"}) (application connCounter $ routersMap) sapp -- staticApp
+  Warp.runSettings warpOpts $ WaiWS.websocketsOr (WS.defaultConnectionOptions {WS.connectionOnPong=dbgS "Pong!"}) (application connCounter routersMap) sapp -- staticApp
 
 -- Embedded static files
 -- staticApp :: Network.Wai.Application
@@ -118,37 +124,49 @@ application st routers pending = do
     let r = WS.pendingRequest pending
     dbg ["Pending websocket request",show r]
 
-    conn <- WS.acceptRequestWith pending (WS.AcceptRequest $ Just "quid2.net")
-    let done = failure conn
+    conn <- WS.acceptRequestWith pending (WS.AcceptRequest $ Just chatsProtocol)
+    let
+        fail reasons = do
+          let msg = TL.pack . unwords $ "Error while initialising connection:" : reasons
+          sendValue $ Failure (TL.toStrict msg)
+          WS.sendClose conn msg
+          err reasons
 
-    when (WS.requestPath r /= "/ws") $ done ["WebSockets connection allowed only at /ws"]
-    --when (not $ WS.requestSecure r)  $ done ["WebSockets request must be secure"]
-    when (isNothing (find (== "quid2.net") (WS.getRequestSubprotocols r))) $ done ["Client must support WS protocol 'quid2.net'"]
+        sendValue :: WSChannelResult -> IO ()
+        sendValue = WS.sendBinaryData conn . flat
+
+    when (WS.requestPath r /= "/ws") $ fail ["WebSockets connection allowed only at /ws"]
+    --when (not $ WS.requestSecure r)  $ fail ["WebSockets request must be secure"]
+
+    when (isNothing (find (== chatsProtocol) (WS.getRequestSubprotocols r))) $ fail ["Client must support WS protocol",concat ["'",T.unpack chatsProtocolT,"'"]]
 
     eProt <- WS.receiveData conn :: IO L.ByteString
     dbg ["header",show $ L.unpack eProt]
     case (unflat eProt) of
-     Left e -> done ["Bad protocol type data",show e]
-     Right (TypedBytes protType@(TypeApp rType vType) protBytes) -> do
-       let bs = toList protBytes
+     Left e -> fail ["Bad protocol type data",show e]
+     Right (TypedBLOB protType@(TypeApp rType vType) protBytes) -> do
+       let bs = L.unpack . unblob $ protBytes -- toList . 
        dbg ["got router type",show protType,show protBytes,show bs]
        case M.lookup rType routers of
         Just router -> do
+          sendValue Success
           n <- connNum st
           client <- newClient n conn
           WS.forkPingThread conn 20
           routerHandler router vType bs client
-        Nothing -> done ["Unsupported Quid2 Protocol",show protType]
- where
-        failure conn reasons = do
-          WS.sendClose conn $ T.pack . unwords $ ["Error while initialising connection:"] ++ reasons
-          err reasons
+          --Redirect
+          -- sendValue (RetryAt $ accessPoint def)
+          -- WS.sendClose conn (T.pack "Retry")
+          -- -- Failure
+        --   sendValue (Failure "You are NOT welcome")
+        --   WS.sendClose conn (T.pack "Sad!")
+        Nothing -> fail ["Unsupported Top Protocol",show protType]
 
 -- unique connection number (in current server run)
 connNum c = modifyMVar c (\n -> return (n+1,n))
 
  -- Number of opened and closed connections
-type WarpState = MVar (Word64,Word64) 
+type WarpState = MVar (Word64,Word64)
 
 newWarpState = newMVar (0,0)
 
@@ -166,7 +184,7 @@ warpBinaryReport
   :: String
      -> UTCTime
      -> WarpState
-     -> IO [NestedReport TypedBytes] -> IO (NestedReport TypedBytes)
+     -> IO [NestedReport TypedBLOB] -> IO (NestedReport TypedBLOB)
 warpBinaryReport version startupTime warpState subs = do
   (o,c) <- readMVar warpState
   NestedReport "Warp" (typedBytes $ WarpReport version (toTime startupTime) o c) <$> subs

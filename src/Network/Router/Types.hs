@@ -16,7 +16,7 @@ import qualified Network.WebSockets                   as WS
 import GHC.Generics
 import Data.Typeable
 import Data.Time.Clock
-import Network.Quid2.Util
+import Network.Top.Util
 import qualified Data.ByteString.Lazy as L
 import Model.Report as X
 import Data.Time.Util
@@ -27,7 +27,7 @@ data Router = Router {
   routerKey    :: AbsType
   ,routerHandler :: Handler
   ,routerReport :: Report
-  ,routerBinaryReport::IO (NestedReport TypedBytes)
+  ,routerBinaryReport::IO (NestedReport TypedBLOB)
   }
 
 type Handler = AbsType -> [Word8] -> Client -> IO ()
@@ -61,4 +61,11 @@ instance Hashable Client where hashWithSalt salt c = hashWithSalt salt $ clientI
 instance Hashable a => Hashable (NonEmptyList a)
 instance Hashable AbsRef
 instance Hashable a => Hashable (Type a)
-
+instance Hashable a => Hashable (ADTRef a)
+instance Hashable a => Hashable (SHA3_256_6 a)
+instance Hashable Identifier
+instance Hashable UnicodeSymbol
+instance Hashable UnicodeLetter
+instance Hashable UnicodeLetterOrNumberOrLine
+instance (Hashable a,Hashable b,Hashable c) => Hashable (ADT a b c)
+instance (Hashable a,Hashable b) => Hashable (ConTree a b)

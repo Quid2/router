@@ -52,7 +52,12 @@ dbDir dir = dir </> "DB"
 closeDB = closeAcidState
 
 $(deriveSafeCopy 0 'base ''Type)
-$(deriveSafeCopy 0 'base ''Ref)
+$(deriveSafeCopy 0 'base ''Identifier)
+$(deriveSafeCopy 0 'base ''UnicodeSymbol)
+$(deriveSafeCopy 0 'base ''UnicodeLetter)
+$(deriveSafeCopy 0 'base ''UnicodeLetterOrNumberOrLine)
+$(deriveSafeCopy 0 'base ''SHA3_256_6)
+$(deriveSafeCopy 0 'base ''AbsRef)
 $(deriveSafeCopy 0 'base ''ConTree)
 $(deriveSafeCopy 0 'base ''ADTRef)
 $(deriveSafeCopy 0 'base ''ADT)

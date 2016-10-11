@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Data.Time.Util,Network.Router.ByType,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Quid2.Util.Dir,Quid2.Util.Service,Model.Report
+  exposed-modules:     Data.Time.Util,Network.Router.ByType,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Quid2.Util.Dir,Quid2.Util.Service,Model.Report,Util,Data.Pattern.X86
   build-depends:       base >= 4.7 && < 5
                      , bytestring
                      , containers
@@ -33,7 +33,7 @@ library
                      , model
                      , pandoc
                      , pandoc-types
-                     , plugins
+                     -- , plugins
                      , top
                      , stm
                      , stm-containers>=0.2.4
@@ -44,6 +44,7 @@ library
                      , typed
                      , unix
                      , websockets
+                     , x86-64bit
   default-language:    Haskell2010
 
 executable quid2.net
@@ -68,6 +69,7 @@ executable quid2.net
                      , scotty>=0.7.2
                      , stm,transformers
                      , typed, top,router
+                     , x86-64bit
 
   default-language:    Haskell2010
 
@@ -81,7 +83,7 @@ executable quid2-repo
                      , hslogger
                      , text
                      , containers,acid-state,safecopy,filepath,mtl,blaze-html,warp,wai,wai-extra,scotty
-                     , typed, top,router
+                     , typed, top,router,ListLike
 
   default-language:    Haskell2010
 
@@ -99,6 +101,15 @@ executable quid2-repo
 
 --   default-language:    Haskell2010
 
+test-suite pattern-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  other-modules: Test.Data,Test.Data.Flat,Test.Data.Model,Test.Data2,Test.Data2.Flat,Test.Data3,Test.Data3.Flat
+  build-depends:       base,containers,bytestring,text,tasty,tasty-hunit,tasty-quickcheck
+                       , flat, model, typed ,top, router,template-haskell
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
 
 source-repository head
   type:     git

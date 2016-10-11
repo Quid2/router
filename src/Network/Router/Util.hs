@@ -7,8 +7,8 @@ import           Control.Exception      (SomeException, fromException, handle)
 import           Control.Monad.IO.Class
 import qualified Data.ByteString.Lazy   as L
 import           Data.Flat
-import           Network.Quid2
-import           Network.Quid2    as X
+import           Network.Top
+import           Network.Top    as X
 import qualified Network.WebSockets     as WS
 
 decodeOK bs = let Right v = unflat (L.pack bs) in v
