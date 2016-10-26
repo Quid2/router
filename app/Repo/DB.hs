@@ -1,10 +1,11 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE PackageImports   #-}
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeFamilies     #-}
 module Repo.DB(DBState(..),wholeDB,openDB,closeDB,getDB,putDB) where
 
-import           Control.Monad.Reader
-import           Control.Monad.State
+import           "mtl" Control.Monad.Reader
+import           "mtl" Control.Monad.State
 import           Data.Acid
 import qualified Data.Map             as M
 import           Data.SafeCopy
@@ -47,7 +48,7 @@ getDB db k = query db (GetByRef k)
 putDB :: DB -> AbsRef -> AbsADT -> IO ()
 putDB db k v = update db (Insert k v)
 
-dbDir dir = dir </> "DB"
+dbDir dir = dir </> "DB2"
 
 closeDB = closeAcidState
 

@@ -7,11 +7,14 @@ import qualified Data.ByteString.Lazy   as L
 import qualified ListT                                as T
 import qualified STMContainers.Set                    as S
 import qualified STMContainers.Multimap             as SMM
-
+import Data.Pattern.Haskell(matcher,match)
+import Data.Pattern.Types
 instance Hashable ByPattern
 instance Hashable v => Hashable (Pattern v)
 instance Hashable Var
 instance Hashable WildCard
+
+m proxy pat = let Right pp = envPattern (absoluteType proxy) pat in matcher pp
 
 type ByPatternState = SMM.Multimap AbsType Client -- Multiple clients per hub
 

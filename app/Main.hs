@@ -7,6 +7,7 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TupleSections        #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE ViewPatterns         #-}
 module Main where
 
 import           Control.Applicative
@@ -44,6 +45,7 @@ import qualified Network.WebSockets                   as WS
 import           Pandoc.Report
 import           Quid2.Util.Service
 import           System.Directory
+import           System.IO                            (stdout)
 import           Util
 import           Web.Scotty
 
@@ -81,7 +83,8 @@ main = initService serviceName setup
 
 setup :: Config () -> IO ()
 setup cfg = do
-  updateGlobalLogger rootLoggerName $ setLevel DEBUG -- INFO
+  logLevelOut DEBUG stdout
+  -- updateGlobalLogger rootLoggerName $ setLevel DEBUG -- INFO
   -- email titto serviceName "just started"
 
   -- Keep track of open/closed connections
@@ -144,8 +147,8 @@ application st routers pending = do
     dbg ["header",show $ L.unpack eProt]
     case (unflat eProt) of
      Left e -> fail ["Bad protocol type data",show e]
-     Right (TypedBLOB protType@(TypeApp rType vType) protBytes) -> do
-       let bs = L.unpack . unblob $ protBytes -- toList . 
+     Right (TypedBLOB protType@(getTypes -> (rType,vTypes)) protBytes) -> do
+       let bs = L.unpack . unblob $ protBytes
        dbg ["got router type",show protType,show protBytes,show bs]
        case M.lookup rType routers of
         Just router -> do
@@ -153,7 +156,7 @@ application st routers pending = do
           n <- connNum st
           client <- newClient n conn
           WS.forkPingThread conn 20
-          routerHandler router vType bs client
+          routerHandler router vTypes bs client
           --Redirect
           -- sendValue (RetryAt $ accessPoint def)
           -- WS.sendClose conn (T.pack "Retry")
@@ -161,6 +164,9 @@ application st routers pending = do
         --   sendValue (Failure "You are NOT welcome")
         --   WS.sendClose conn (T.pack "Sad!")
         Nothing -> fail ["Unsupported Top Protocol",show protType]
+
+--getTypes gt = let TypeN rType vTypes = typeN gt in (rType,map (\(TypeN t []) -> t) vTypes)
+getTypes gt = let TypeN rType vTypes = typeN gt in (rType,map typeA vTypes)
 
 -- unique connection number (in current server run)
 connNum c = modifyMVar c (\n -> return (n+1,n))
@@ -187,7 +193,8 @@ warpBinaryReport
      -> IO [NestedReport TypedBLOB] -> IO (NestedReport TypedBLOB)
 warpBinaryReport version startupTime warpState subs = do
   (o,c) <- readMVar warpState
-  NestedReport "Warp" (typedBytes $ WarpReport version (toTime startupTime) o c) <$> subs
+  NestedReport "Warp" (typedBLOB $ WarpReport version (toTime startupTime) o c) <$> subs
 
 
 -- t = absType (Proxy::Proxy WarpReport)
+

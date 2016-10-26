@@ -12,7 +12,9 @@ import Data.Bifunctor
 
 -- instance Hashable ByType
 
-type ByTypeState = SMM.Multimap AbsType Client -- Multiple clients per hub
+ -- Multiple clients per type
+-- type ByTypeState = SMM.Multimap AbsType Client
+type ByTypeState = SMM.Multimap AbsType Client
 
 newByTypeRouter = do
   state <- SMM.newIO
@@ -21,7 +23,7 @@ newByTypeRouter = do
     where
 
       reportTyped state = do
-         r <- typedBytes . ByTypeReport . map (second asClientReport) <$> allConns state
+         r <- typedBLOB . ByTypeReport . map (second asClientReport) <$> allConns state
          return $ NestedReport "ByType" r []
 
       report_ state = report "ByType Router" [
@@ -31,11 +33,13 @@ newByTypeRouter = do
 
       allConns = atomically . T.toList . SMM.stream
 
-      handler_ :: ByTypeState -> AbsType -> [Word8] -> Client -> IO ()
-      handler_ st t bs client = do
+      -- one thread per client
+      handler_ :: ByTypeState -> [AbsType] -> [Word8] -> Client -> IO ()
+      handler_ st [t] bs client = do
         let ByType :: ByType () = decodeOK bs
         liftIO $ dbg ["Protocol",show t,show client]
         atomically $ SMM.insert client t st
+        -- on failure remove client from map and terminate thread
         loop (atomically $ SMM.delete client t st) $ do
           msg <- fromClient client
           dbg [show t,"IN",show . L.unpack $ msg]

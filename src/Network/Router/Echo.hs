@@ -15,14 +15,14 @@ newEchoRouter = do
 
      where
        reportTyped state = do
-         r <- typedBytes . map asClientReport <$> allConns state
+         r <- typedBLOB . map asClientReport <$> allConns state
          return $ NestedReport "Echo" r []
 
        report_ state = report "Echo Router" [("Open Connections",bulletList . map (p . show) <$> allConns state)]
 
        allConns = atomically . T.toList . S.stream
 
-       handler_ state t echoBytes client = do
+       handler_ state _ echoBytes client = do
          dbg ["Protocol ECHO started",show echoBytes]
          let echo :: Echo () = decodeOK echoBytes
          dbg ["Protocol ECHO",show echo]

@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Data.Time.Util,Network.Router.ByType,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Quid2.Util.Dir,Quid2.Util.Service,Model.Report,Util,Data.Pattern.X86
+  exposed-modules:     Data.Time.Util,Network.Router.ByType,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Quid2.Util.Dir,Quid2.Util.Service,Model.Report,Util,Data.Pattern.Haskell,Data.Pattern.X64
   build-depends:       base >= 4.7 && < 5
                      , bytestring
                      , containers
@@ -33,7 +33,6 @@ library
                      , model
                      , pandoc
                      , pandoc-types
-                     -- , plugins
                      , top
                      , stm
                      , stm-containers>=0.2.4
@@ -44,7 +43,10 @@ library
                      , typed
                      , unix
                      , websockets
-                     , x86-64bit
+                     --, memory
+  if (arch(x86_64))
+    build-depends:  x86-64bit>=0.4.4
+
   default-language:    Haskell2010
 
 executable quid2.net
@@ -69,7 +71,7 @@ executable quid2.net
                      , scotty>=0.7.2
                      , stm,transformers
                      , typed, top,router
-                     , x86-64bit
+                     -- , x86-64bit
 
   default-language:    Haskell2010
 
@@ -107,7 +109,7 @@ test-suite pattern-test
   main-is:             Spec.hs
   other-modules: Test.Data,Test.Data.Flat,Test.Data.Model,Test.Data2,Test.Data2.Flat,Test.Data3,Test.Data3.Flat
   build-depends:       base,containers,bytestring,text,tasty,tasty-hunit,tasty-quickcheck
-                       , flat, model, typed ,top, router,template-haskell
+                       , flat, model, typed ,top, router,template-haskell,criterion
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 

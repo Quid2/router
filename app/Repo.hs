@@ -23,6 +23,7 @@ import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Quid2.Util.Service
 import           Repo.DB
 import           Repo.Types
+import           System.IO                            (stdout)
 import           Text.Blaze.Html.Renderer.Text
 import           Text.Blaze.Html5                     hiding (head, html, input,
                                                        main, map, output, param)
@@ -36,7 +37,8 @@ main = initService "quid2-repo" setup
 
 setup :: Quid2.Util.Service.Config () -> IO ()
 setup cfg = do
-  updateGlobalLogger rootLoggerName $ setLevel DEBUG -- INFO
+  -- updateGlobalLogger rootLoggerName $ setLevel DEBUG -- INFO
+  logLevelOut DEBUG stdout
 
   db <- openDB (stateDir cfg)
 
@@ -74,8 +76,11 @@ setup cfg = do
 
       agent db = do
         msg <- await
+        -- dbg  ["MSG",show msg]
         case msg of
-          Record adt -> lift $ putDB db (refS adt) adt
+          Record adt -> do
+            dbg ["Record",prettyShow (refS adt),show (refS adt),prettyShow adt]
+            lift $ putDB db (refS adt) adt
 
           AskDataTypes -> do
             vs <- lift $ (\(DBState env) -> M.assocs env) <$> wholeDB db
@@ -133,3 +138,6 @@ runAgent agent = runClientForever def ByType $ \conn -> runEffect $ pipeIn conn 
 
 -- pp = head . toList . snd . head . M.elems . snd $ absTypeEnv (Proxy :: Proxy (Bool))
 ppr = render . pPrint
+
+
+
