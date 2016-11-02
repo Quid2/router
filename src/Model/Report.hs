@@ -1,10 +1,11 @@
 {-# LANGUAGE DeriveGeneric #-}
 -- Data model for reports returned by the quid2.net server
-module Model.Report (NestedReport(..),WarpReport(..),ByTypeReport(..),ClientReport(..),Time(..)) where
+module Model.Report (NestedReport(..),WarpReport(..),ByTypeReport(..),ByPatternReport(..),ClientReport(..),Time(..)) where
 import Data.Time.Util
 import Data.Time.Clock
 import Data.Typed
 import Data.Word
+import Data.Pattern.Types
 
 data WarpReport = WarpReport {
   version::String
@@ -25,6 +26,10 @@ instance Model a => Model (NestedReport a)
 data ByTypeReport = ByTypeReport [(AbsType,ClientReport)] deriving (Eq,Ord,Show,Generic)
 instance Flat ByTypeReport
 instance Model ByTypeReport
+
+data ByPatternReport = ByPatternReport [(AbsType,Pattern WildCard,ClientReport)] deriving (Eq,Ord,Show,Generic)
+instance Flat ByPatternReport
+instance Model ByPatternReport
 
 data ClientReport = ClientReport {clientID::Integer,clientStartTime::Time} deriving (Show,Eq,Ord,Generic)
 instance Flat ClientReport

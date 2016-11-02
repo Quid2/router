@@ -11,7 +11,7 @@ import           Network.Top
 import           Network.Top    as X
 import qualified Network.WebSockets     as WS
 
-decodeOK bs = let Right v = unflat (L.pack bs) in v
+decodeOK bs = let Right v = unflat bs in v
 
 loop deleteOp = handle (catchDisconnect deleteOp) . forever
 

@@ -20,6 +20,7 @@ import Network.Top.Util
 import qualified Data.ByteString.Lazy as L
 import Model.Report as X
 import Data.Time.Util
+import Repo.Types
 
 type Routers = M.Map AbsRef Router
 
@@ -30,7 +31,7 @@ data Router = Router {
   ,routerBinaryReport::IO (NestedReport TypedBLOB)
   }
 
-type Handler = [AbsType] -> [Word8] -> Client -> IO ()
+type Handler = TypeSolver -> [AbsType] -> L.ByteString -> IO (Either String (Client -> IO ()))
 
 -- router proxy = let (TypeApp r _) = absType proxy in Router r
 router proxy = let (TypeN r _) = typeN (absType proxy) in Router r
@@ -39,6 +40,7 @@ newClient n conn = do
   t <- getCurrentTime
   return $ Client n conn t
 
+asClientReport :: Client -> ClientReport
 asClientReport c = ClientReport (clientId c) (toTime . clientOpenTime $ c)
 
 data Client = Client {

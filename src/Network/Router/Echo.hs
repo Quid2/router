@@ -22,10 +22,13 @@ newEchoRouter = do
 
        allConns = atomically . T.toList . S.stream
 
-       handler_ state _ echoBytes client = do
+       handler_ state _ _ echoBytes = try $ do
          dbg ["Protocol ECHO started",show echoBytes]
          let echo :: Echo () = decodeOK echoBytes
          dbg ["Protocol ECHO",show echo]
+         return (handle state echo)
+
+       handle state echo client = do
          atomically $ S.insert client state
          loop (atomically $ S.delete client state) $ do
            msg <- fromClient client

@@ -44,6 +44,8 @@ import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import qualified Network.WebSockets                   as WS
 import           Pandoc.Report
 import           Quid2.Util.Service
+import           Repo.DB
+import qualified Repo.Types                           as R
 import           System.Directory
 import           System.IO                            (stdout)
 import           Util
@@ -79,13 +81,25 @@ serviceName = "quid2.net"
 
 main = initService serviceName setup
 
--- data RouterConfig = RouterConfig
-
 setup :: Config () -> IO ()
 setup cfg = do
   logLevelOut DEBUG stdout
   -- updateGlobalLogger rootLoggerName $ setLevel DEBUG -- INFO
   -- email titto serviceName "just started"
+
+  -- local ADTS definition cache
+  db <- openDB (stateDir cfg)
+  --dbgS (stateDir cfg)
+  let dbRepo = R.Repo {R.get = \ref -> do
+                          mr <- getDB db ref
+                          --print (unwords ["get",show ref,show mr])
+                          --dbg ["get",show ref,show $ isJust mr]
+                          return mr
+                      ,R.put = \adt -> do
+                          --dbg ["put",prettyShow adt]
+                          putDB db (refS adt) adt
+                      }
+  let adtSolver t = ((\env -> AbsoluteType (M.fromList env) t) <$>) <$> solveType dbRepo def t
 
   -- Keep track of open/closed connections
   warpState <- newWarpState
@@ -94,8 +108,8 @@ setup cfg = do
 
   -- Setup routers
   echoRouter <- newEchoRouter
-  byTypeRouter <- newByTypeRouter
-  let routers = [echoRouter,byTypeRouter]
+  byTypeRouters <- newByTypeRouters
+  let routers = [echoRouter]++byTypeRouters
   let routersMap = foldr (\r -> M.insert (routerKey r) r) M.empty routers
   let version = unwords [__DATE__,__TIME__,"(compiler local time)"]
   startupTime <- getCurrentTime
@@ -115,15 +129,15 @@ setup cfg = do
   -- let warpOpts =  Warp.setOnClose onClose . Warp.setOnOpen onOpen . Warp.setPort 80 . Warp.setTimeout 60 $ Warp.defaultSettings
 
   connCounter <- newMVar 0
-  Warp.runSettings warpOpts $ WaiWS.websocketsOr (WS.defaultConnectionOptions {WS.connectionOnPong=dbgS "Pong!"}) (application connCounter routersMap) sapp -- staticApp
+  Warp.runSettings warpOpts $ WaiWS.websocketsOr (WS.defaultConnectionOptions {WS.connectionOnPong=dbgS "Pong!"}) (application adtSolver connCounter routersMap) sapp -- staticApp
 
 -- Embedded static files
 -- staticApp :: Network.Wai.Application
 -- staticApp = Static.staticApp $ Static.embeddedSettings $(embedDir "static")
 
 -- application :: MVar ServerState -> WS.ServerApp
-application :: MVar Integer -> Routers -> WS.PendingConnection -> IO ()
-application st routers pending = do
+application :: R.TypeSolver -> MVar Integer -> Routers -> WS.PendingConnection -> IO ()
+application adtSolver st routers pending = do
     let r = WS.pendingRequest pending
     dbg ["Pending websocket request",show r]
 
@@ -148,15 +162,29 @@ application st routers pending = do
     case (unflat eProt) of
      Left e -> fail ["Bad protocol type data",show e]
      Right (TypedBLOB protType@(getTypes -> (rType,vTypes)) protBytes) -> do
-       let bs = L.unpack . unblob $ protBytes
-       dbg ["got router type",show protType,show protBytes,show bs]
+       let bs = unblob protBytes
+       dbg ["got router type",show protType,show protBytes,show $ L.unpack bs]
        case M.lookup rType routers of
         Just router -> do
-          sendValue Success
-          n <- connNum st
-          client <- newClient n conn
-          WS.forkPingThread conn 20
-          routerHandler router vTypes bs client
+          -- sendValue Success
+          -- n <- connNum st
+          -- client <- newClient n conn
+          -- WS.forkPingThread conn 20
+          -- handlerOK <- try (routerHandler router adtSolver vTypes bs client)
+          -- case handlerOK of
+          --   Left (e::SomeException) -> fail [show e,show protType]
+          --   Right () -> return ()
+
+          ehandler <- routerHandler router adtSolver vTypes bs
+          case ehandler of
+            Left e -> fail [e,show protType]
+            Right handler -> do
+              sendValue Success
+              n <- connNum st
+              client <- newClient n conn
+              WS.forkPingThread conn 20
+              handler client
+
           --Redirect
           -- sendValue (RetryAt $ accessPoint def)
           -- WS.sendClose conn (T.pack "Retry")
@@ -195,6 +223,7 @@ warpBinaryReport version startupTime warpState subs = do
   (o,c) <- readMVar warpState
   NestedReport "Warp" (typedBLOB $ WarpReport version (toTime startupTime) o c) <$> subs
 
-
 -- t = absType (Proxy::Proxy WarpReport)
+
+
 

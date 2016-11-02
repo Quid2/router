@@ -27,6 +27,7 @@ match matcher bs = case runPartialGet matcher (L.fromStrict bs) 0 of
 
 -- match_  bs = runPartialGet matchAll (L.fromStrict bs) 0
 -- match_ :: PatternMatcher -> B.ByteString -> Bool -- (Either MatchError Bool)
+matcher :: PatternMatcher -> Get Bool
 matcher = match__ . mapPM bitSplit
 
 match__ (tt,pat) = do

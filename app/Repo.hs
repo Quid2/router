@@ -22,7 +22,7 @@ import qualified Network.Wai.Handler.Warp             as Warp
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Quid2.Util.Service
 import           Repo.DB
-import           Repo.Types
+import           Repo.Types hiding (Repo(..))
 import           System.IO                            (stdout)
 import           Text.Blaze.Html.Renderer.Text
 import           Text.Blaze.Html5                     hiding (head, html, input,
@@ -31,7 +31,7 @@ import           Text.Blaze.Html5.Attributes          hiding (async)
 import           Util
 import           Web.Scotty
 
-u= recordType def (Proxy::Proxy Repo)
+u= recordType def (Proxy::Proxy RepoProtocol)
 
 main = initService "quid2-repo" setup
 
@@ -76,58 +76,65 @@ setup cfg = do
 
       agent db = do
         msg <- await
-        -- dbg  ["MSG",show msg]
+        --dbg  ["MSG",show msg]
         case msg of
           Record adt -> do
-            dbg ["Record",prettyShow (refS adt),show (refS adt),prettyShow adt]
+            --dbg ["Record",prettyShow (refS adt),show (refS adt),prettyShow adt]
             lift $ putDB db (refS adt) adt
 
           AskDataTypes -> do
             vs <- lift $ (\(DBState env) -> M.assocs env) <$> wholeDB db
             yield . KnownDataTypes $ vs
 
-          Solve typ -> do
-            rs <- lift $ mapM (\r -> (r,) <$> getDB db r) . nub . toList $ typ
-            let errs = map fst . filter (isNothing . snd) $ rs
-            yield . Solved typ $ if null errs
-                                 then Right (map (second fromJust) rs)
-                                 else Left $ T.unwords ["Unknown types:",T.pack $ show errs]
+          Solve ref -> do
+            madt <- lift $ getDB db ref
+            case madt of
+              Nothing -> return ()
+              Just adt -> yield $ Solved ref adt
+
+          -- Solve typ -> do
+          --   rs <- lift $ mapM (\r -> (r,) <$> getDB db r) . references $ typ
+          --   let errs = map fst . filter (isNothing . snd) $ rs
+          --   yield . Solved typ $ if null errs
+          --                        then Right (map (second fromJust) rs)
+          --                        else Left $ T.unwords ["Unknown types:",T.pack $ show errs]
+
           _ -> return ()
 
         agent db
 
-newAgent db = runAgent (agent db)
-  where
-    agent db = do
+-- newAgent db = runAgent (agent db)
+--   where
+--     agent db = do
 
-      -- Load initial state from other agents
-      yield AskRefs
+--       -- Load initial state from other agents
+--       yield AskRefs
 
-      msg <- await
-      case msg of
+--       msg <- await
+--       case msg of
 
-        AskIsKnown r -> do
-          known <- lift $ isJust <$> getDB db r
-          when known $ yield (IsKnown r)
+--         AskIsKnown r -> do
+--           known <- lift $ isJust <$> getDB db r
+--           when known $ yield (IsKnown r)
 
-        IsKnown r -> return () -- ?
+--         IsKnown r -> return () -- ?
 
-        AskADT r -> do
-          mADT <- lift $ getDB db r
-          case mADT of
-            Nothing -> return ()
-            Just adt -> yield $ KnownADT r adt
+--         AskADT r -> do
+--           mADT <- lift $ getDB db r
+--           case mADT of
+--             Nothing -> return ()
+--             Just adt -> yield $ KnownADT r adt
 
-        AskRefs -> do
-          vs <- lift $ (\(DBState env) -> M.assocs env) <$> wholeDB db
-          yield . KnownRefs $ map (second declName) vs
+--         AskRefs -> do
+--           vs <- lift $ (\(DBState env) -> M.assocs env) <$> wholeDB db
+--           yield . KnownRefs $ map (second declName) vs
 
-        KnownRefs ks -> do
-          unknowns <- snd <$> inDB db (map fst ks)
-          mapM_ (yield . AskADT) unknowns
-        -- TODO: Store when fully known
-        -- KnownADT ref adt -> lift $ putDB db ref adt
-      agent db
+--         KnownRefs ks -> do
+--           unknowns <- snd <$> inDB db (map fst ks)
+--           mapM_ (yield . AskADT) unknowns
+--         -- TODO: Store when fully known
+--         -- KnownADT ref adt -> lift $ putDB db ref adt
+--       agent db
 
 -- Record a definition
 -- runRecord typ = runAgent $ do yield
