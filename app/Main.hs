@@ -13,7 +13,7 @@ module Main where
 import           Control.Applicative
 import           Control.Concurrent                   (MVar, modifyMVar,
                                                        modifyMVar_, newMVar,
-                                                       readMVar)
+                                                       readMVar,forkIO)
 import           Control.Concurrent.STM
 import           Control.Exception                    (fromException, handle)
 import           Control.Monad
@@ -31,8 +31,10 @@ import qualified Data.Text.Lazy                       as TL
 import           Data.Time.Util
 import           Data.Typed                           hiding (first)
 import           Data.Word
-import           Network.Router.ByType
-import           Network.Router.Echo
+import qualified Network.Router.ByPattern
+import qualified Network.Router.ByType
+import qualified Network.Router.ByAny
+import qualified Network.Router.Echo
 import           Network.Router.Types
 import           Network.Top                          hiding (Config, first)
 import qualified Network.Top                          as Top
@@ -87,6 +89,8 @@ setup cfg = do
   -- updateGlobalLogger rootLoggerName $ setLevel DEBUG -- INFO
   -- email titto serviceName "just started"
 
+  runServices
+
   -- local ADTS definition cache
   db <- openDB (stateDir cfg)
   --dbgS (stateDir cfg)
@@ -107,9 +111,13 @@ setup cfg = do
   let onClose sockAddr = connClosed warpState >> dbg ["Connection Close",show sockAddr]
 
   -- Setup routers
-  echoRouter <- newEchoRouter
-  byTypeRouters <- newByTypeRouters
-  let routers = [echoRouter]++byTypeRouters
+  echoRouter <- Network.Router.Echo.newRouter
+  bus <- newBus
+  byAnyRouter <- Network.Router.ByAny.newRouter bus
+  byTypeRouter <- Network.Router.ByType.newRouter bus
+  byPatternRouter <- Network.Router.ByPattern.newRouter bus adtSolver
+  --byTypeRouters <- newByTypeRouters
+  let routers = [echoRouter,byAnyRouter,byTypeRouter,byPatternRouter]
   let routersMap = foldr (\r -> M.insert (routerKey r) r) M.empty routers
   let version = unwords [__DATE__,__TIME__,"(compiler local time)"]
   startupTime <- getCurrentTime
@@ -117,8 +125,11 @@ setup cfg = do
   --asText serverReport >>= dbg1
 
   sapp :: Network.Wai.Application <- scottyApp $ do
+
      -- middleware logStdoutDev -- NOTE: output on stdout, not log file
      get "/" $ liftIO (TL.pack <$> asHTML serverReport) >>= html
+
+     -- Return Server report in binary format
      get "/report" $ do
        r <- liftIO (flat <$> warpBinaryReport version startupTime warpState (mapM routerBinaryReport routers))
        setHeader "Access-Control-Allow-Origin" "*"
@@ -129,15 +140,15 @@ setup cfg = do
   -- let warpOpts =  Warp.setOnClose onClose . Warp.setOnOpen onOpen . Warp.setPort 80 . Warp.setTimeout 60 $ Warp.defaultSettings
 
   connCounter <- newMVar 0
-  Warp.runSettings warpOpts $ WaiWS.websocketsOr (WS.defaultConnectionOptions {WS.connectionOnPong=dbgS "Pong!"}) (application adtSolver connCounter routersMap) sapp -- staticApp
+  Warp.runSettings warpOpts $ WaiWS.websocketsOr (WS.defaultConnectionOptions {WS.connectionOnPong=dbgS "Pong!"}) (application connCounter routersMap) sapp -- staticApp
 
 -- Embedded static files
 -- staticApp :: Network.Wai.Application
 -- staticApp = Static.staticApp $ Static.embeddedSettings $(embedDir "static")
 
 -- application :: MVar ServerState -> WS.ServerApp
-application :: R.TypeSolver -> MVar Integer -> Routers -> WS.PendingConnection -> IO ()
-application adtSolver st routers pending = do
+application :: MVar Integer -> Routers -> WS.PendingConnection -> IO ()
+application st routers pending = do
     let r = WS.pendingRequest pending
     dbg ["Pending websocket request",show r]
 
@@ -175,15 +186,37 @@ application adtSolver st routers pending = do
           --   Left (e::SomeException) -> fail [show e,show protType]
           --   Right () -> return ()
 
-          ehandler <- routerHandler router adtSolver vTypes bs
+          -- Validate connection first
+          ehandler <- try $ routerClientHandler router vTypes bs
           case ehandler of
             Left e -> fail [e,show protType]
             Right handler -> do
-              sendValue Success
               n <- connNum st
               client <- newClient n conn
+              sendValue Success
               WS.forkPingThread conn 20
               handler client
+
+              -- loop (h $ ClientClose client) $ do
+              --   msg <- fromClient client
+              --   --when (echoDebug echo) $ dbg ["ECHO",show $ L.unpack msg]
+              --   --dbg ["ECHO msg length=",show $ L.length msg]
+              --   h ($ Client )mfwd <- hMsg handler (fwd )
+              --   case mfwd of
+              --     Nothing -> return ()
+              --     Just tmsg -> undefined
+
+
+              -- loop (hClose handler) $ do
+              --   msg <- fromClient client
+              --   --when (echoDebug echo) $ dbg ["ECHO",show $ L.unpack msg]
+              --   --dbg ["ECHO msg length=",show $ L.length msg]
+              --   mfwd <- hMsg handler
+              --   case mfwd of
+              --     Nothing -> return ()
+              --     Just tmsg -> handleMsg undefined
+
+
 
           --Redirect
           -- sendValue (RetryAt $ accessPoint def)
@@ -225,5 +258,4 @@ warpBinaryReport version startupTime warpState subs = do
 
 -- t = absType (Proxy::Proxy WarpReport)
 
-
-
+runServices = return ()

@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RecursiveDo               #-}
-{-# LANGUAGE TupleSections             #-}
+{-# LANGUAGE TupleSections           ,CPP  #-}
 module Data.Pattern.X64 where
 import           CodeGen.X86
 import           Control.Monad            (when)
@@ -15,22 +15,15 @@ import           Foreign
 import           System.IO.Unsafe         (unsafePerformIO)
 -- import Data.Memory.Endian
 
--- foreign import ccall "dynamic" callWW :: FunPtr (Int -> Int -> Ptr Word8 -> IO Bool) -> Int -> Int -> Ptr Word8 -> IO Bool
--- instance Callable (Int -> Int -> Ptr Word8 -> IO Bool) where dynCCall = callWW
-
 foreign import ccall "dynamic" callWW :: FunPtr (Int -> Int -> Ptr Word8 -> IO Word8) -> Int -> Int -> Ptr Word8 -> IO Word8
 instance Callable (Int -> Int -> Ptr Word8 -> IO Word8) where dynCCall = callWW
 
--- match :: PatternMatcher -> B.ByteString -> IO (Either String Bool)
 matchPM :: PatternMatcher -> B.ByteString -> Bool
 matchPM = match . matcher
 
--- matchG :: (Int -> Int -> Ptr Word8 -> IO Word8) -> B.ByteString -> IO (Either String Bool)
 match :: (Int -> Int -> Ptr Word8 -> IO Word8) -> B.ByteString -> Bool
 match matcher bs =
   let (ptr,off,len) = B.toForeignPtr bs
-  --in retCode <$> withForeignPtr ptr (matcher off len)
-  --in trueCode == B.inlinePerformIO (withForeignPtr ptr (matcher off len))
   in trueCode == unsafePerformIO (withForeignPtr ptr (matcher off len))
 
 retCode c | c == falseCode = Right False
@@ -38,35 +31,16 @@ retCode c | c == falseCode = Right False
           | c== errorNotEnoughDataCode = Left "Not enough data"
           | otherwise = Left "Unknown return code"
 
--- arg1 offset
--- arg2 len
--- arg3 ptr
--- matchByte :: Word8 -> Code
-matchByte :: Word8 -> Int -> Int -> Ptr Word8 -> IO Word8 -- Bool
-matchByte b = compile $ do
-  mov result arg3
-  add result arg1
-  -- inc result
-  mov al (addr8 result)
-  -- mov cl b
-  traceReg "d" al
-  xor_ al (fromIntegral b)
-  if_ Z (mov result 1) (mov result 0)
-  traceReg "d" al
-  -- mov result al
-  traceReg "d" result
-  ret
-
 falseCode = 0
 trueCode = 1
 errorNotEnoughDataCode = 2
 
---patternMatcher :: PatternMatcher -> Int -> Int -> Ptr Word8 -> IO Word8
 matcher = compile . matcherCode
+
+-- #define ZZ -- INCOMPLETE
 
 -- CHK: stack overflow for deeply nested structures?
 matcherCode pm = mdo
-  -- push rax >> mov al 200 >> and_ al 200 >> xor_ al 200 >> pop rax >> push rax >> mov ax 40000 >> and_ ax 40000 >> xor_ ax 40000 >> pop rax
   -- bt (addr8 arg3) al 
   -- bt (addr16 arg3) ax
   let (tt,pat) = mapPM (boolsSplit 8) pm
@@ -78,16 +52,20 @@ matcherCode pm = mdo
 
   -- State
   let ptr = arg3
+#ifdef ZZ
+  -- INVARIANT: if totBits>0 then topByte=current byte, shifted left to have first valid bit as msb
+  let topByte = cl
+#else
   let topBit = cl -- must be cl to be used in shifts -- lower part of arg4 in unix or arg1 in windows
   let topBit16 = cx
+  mov topBit16 7
+#endif
   let totBits = arg2
-
+  -- INVARIANT: ptr points to current byte
   add ptr bsOffset
 
   -- mov totBits bsLength
   shl totBits 3
-
-  mov topBit16 7
 
   --  let ptrLast = arg2
   -- let cachedBits = dl -- arg3 -- topBit in current byte 0..8
@@ -139,11 +117,10 @@ matcherCode pm = mdo
     -- Critical section
     matchTree (BFork l r) = do
       ensureBits 1
-      -- peekBit >> dropBit
 
       -- dropBit this could be moved on both branches of if2 to avoid the need for retestBit
       -- peekBit >> dropBit >> retestBit
-      peekBit >> dropBit
+      peekBit >> dropBits 1
       if2 l r
 
     -- Tail call optimisation
@@ -180,7 +157,7 @@ matcherCode pm = mdo
                      j (if bs == [True] then bitLeft else bitRight) retFalse
 
                      --dbg ptr >> dbg (addr8 ptr) >> dbg totBits >> dbg topBit
-                     dropBit
+                     dropBits 1
 
                    | n <=8 = do
                      cmp topBit (fromIntegral $ n-1)
@@ -188,7 +165,7 @@ matcherCode pm = mdo
                                 --dbg ax
                                 --let pat = fromIntegral . fix16 . byteSwap16 . (fromIntegral::Integer->Word16) $ asMSBits 16 bs
                                 --let pat = fromIntegral . fix16 . unLE . toLE . (fromIntegral::Integer->Word16) $ asMSBits 16 bs
-                                let pat = fromIntegral . fix16 $ asMSBits 16 bs
+                                let pat = fromIntegral $ asMSBits 16 bs
 
                                 -- get word
                                 mov work16 (addr16 ptr)
@@ -203,7 +180,7 @@ matcherCode pm = mdo
                                 xchg other8 topBit
 
                                 -- compare with pattern
-                                and_ work16 (fromIntegral . fix16 $ andMask 16 n)
+                                and_ work16 (fromIntegral $ andMask 16 n)
                                 --dbg work16 >> mov other16 pat >> dbg other16
                                 xor_ work16 pat
                                 j NZ retFalse
@@ -211,7 +188,7 @@ matcherCode pm = mdo
                             ) (do -- one byte
                                   --dbg bx
                                   -- pat=<101>00000
-                                  let pat = fromIntegral $ fix8 $ asMSBits 8 bs
+                                  let pat = fromIntegral $ asMSBits 8 bs
 
                                   -- get word
                                   mov work8 (addr8 ptr)
@@ -226,7 +203,7 @@ matcherCode pm = mdo
                                   --dbg work8
 
                                   -- compare with pattern
-                                  and_ work8 (fromIntegral . fix8 $ andMask 8 n)
+                                  and_ work8 (fromIntegral $ andMask 8 n)
                                   --dbg work8
                                   -- dbg work8 >> mov other8 pat >> dbg other8
                                   xor_ work8 pat
@@ -240,14 +217,33 @@ matcherCode pm = mdo
     -- make_mask n = (1 `shiftL` fromIntegral n) - 1 --
     -- andMask8 n = not (shiftR 255 n)
 
+#ifdef ZZ
+    nextBit = do
+      -- cmp totBits (fromIntegral reqBits)
+      -- reduce tot count immediately
+      xor_ totBits totBits
+      -- expect NC $ falseCode
+      j Z retFalse
+      test totBits 7
+      unless NZ (mov topByte (addr8 ptr))
+      shl topByte
+
+    dropBits n | n == 1 = cmp totBits 8 >> unless NZ (inc ptr)
+               | otherwise = do
+      let m = n `mod` 8
+      when (m > 0) $ do
+        unless NC (incPtr 1)
+      incPtr (n `div` 8)
+
+    peekBit = do
+      test totBits 7
+      unless NZ (mov topByte (addr8 ptr))
+      shl topByte
+
+#else
     -- Preserves carry
-    dropBit = dec topBit >> unless NS (inc ptr >> mov topBit 7)
-
-    -- dropBit = dropBits 1
-    -- dropBits 1 = do
-
-    dropBits n = do
-      -- topBit=1 n=3 -> topBit=5
+    dropBits n | n == 1 = dec topBit >> unless NS (inc ptr >> mov topBit 7)
+               | otherwise = do
       let m = n `mod` 8
       when (m > 0) $ do
         sub topBit (fromIntegral m)
@@ -262,11 +258,6 @@ matcherCode pm = mdo
       -- mov topBit (resizeOperand totBits) -- (fromIntegral $ n `div` 8)
       -- and_ topBit 7
       -- dec topBit
-
-    incPtr n = i n -- (n `div` 8)
-       where i 0 = return ()
-             i 1 = inc ptr
-             i n = add ptr (fromIntegral n)
 
     peekBit = do
       -- PROB: we assume that this access only the required byte
@@ -287,6 +278,12 @@ matcherCode pm = mdo
 
     -- retestBit = cmp work8 0
     -- retestBit = popf
+#endif
+
+    incPtr n = i n -- (n `div` 8)
+       where i 0 = return ()
+             i 1 = inc ptr
+             i n = add ptr (fromIntegral n)
 
     -- bitLeft = Z;bitRight = NZ
     bitLeft = NC;bitRight = C
@@ -317,7 +314,7 @@ matcherCode pm = mdo
             j NE retFalse
         ) (do
               --dbg bx
-              mov work8 (fromIntegral $ fix8 254)
+              mov work8 254
               -- 11111110 -> topBit 3 -> 11110000 -> not -> 00001111
               shl work8 topBit
               not_ work8
@@ -346,15 +343,6 @@ matcherCode pm = mdo
 dbg = traceReg "u"
 -- dbg _ = return ()
 
-
-fix8 = id
-fix16 = id
--- temporary fix for https://github.com/divipp/x86-64/issues/6
--- fix8 n | n < 2^7 = n
---        | otherwise = n-2^8
-
--- fix16 n | n < 2^15 = n
---         | otherwise = n-2^16
 
     -- | make_mask 3 = 11100000
     -- makeMask n = do

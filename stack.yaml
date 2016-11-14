@@ -7,12 +7,13 @@ packages:
 #- ../model
 #- ../flat
 #- ../typed
-#- ../top
+# - ../top
 
 - location:
-   git: https://github.com/tittoassini/top
-   commit: 5511d824af7f1c197e97996a25f33afcd845513a
+    git: https://github.com/tittoassini/top
+    commit: a7a0bd6e374b12a1c995a1b506a686e9b302c1d5
   extra-dep: true
+
 - location:
     git: https://github.com/tittoassini/typed
     commit: 00b39b1e94dc2a047e6371a1622c8ee411882efe

@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Network.Router.Echo where
+module Network.Router.Echo(newRouter) where
 
 import Network.Router.Util
 import Network.Router.Types
@@ -9,7 +9,7 @@ import qualified ListT                                as T
 import qualified STMContainers.Set                    as S
 
 -- PROB: debug option can be used for a denied service attack
-newEchoRouter = do
+newRouter = do
    state <- S.newIO
    return $ router (Proxy::Proxy (Echo ())) (handler_ state) (report_ state) (reportTyped state)
 
@@ -22,7 +22,7 @@ newEchoRouter = do
 
        allConns = atomically . T.toList . S.stream
 
-       handler_ state _ _ echoBytes = try $ do
+       handler_ state _ echoBytes = do
          dbg ["Protocol ECHO started",show echoBytes]
          let echo :: Echo () = decodeOK echoBytes
          dbg ["Protocol ECHO",show echo]

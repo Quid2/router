@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances ,DeriveGeneric #-}
 module Network.Router.Types(
-  Routers,Router(..),router
+  Routers,Router(..),router,TypedMsg(..),onTypedMsg
   ,Client,newClient,fromClient,toClient,asClientReport
   ,Word8
   ,module X) where
@@ -15,23 +15,50 @@ import           Control.Applicative
 import qualified Network.WebSockets                   as WS
 import GHC.Generics
 import Data.Typeable
-import Data.Time.Clock
 import Network.Top.Util
 import qualified Data.ByteString.Lazy as L
-import Model.Report as X
-import Data.Time.Util
-import Repo.Types
+import           Model.Report as X
+import           Network.Bus as X
+import           Data.Time.Util
+import           Repo.Types
+import Control.Concurrent
 
 type Routers = M.Map AbsRef Router
 
 data Router = Router {
   routerKey    :: AbsRef
-  ,routerHandler :: Handler
+  ,routerClientHandler :: ClientHandler
+  --,routerTypedMsgHandler :: TypedMsgHandler
   ,routerReport :: Report
   ,routerBinaryReport::IO (NestedReport TypedBLOB)
   }
 
-type Handler = TypeSolver -> [AbsType] -> L.ByteString -> IO (Either String (Client -> IO ()))
+-- type Handler = [AbsType] -> L.ByteString -> IO (Either String (Client -> MsgHandler)
+
+type ClientHandler = [AbsType] -> L.ByteString -> IO (Client -> IO ())
+
+--data MsgHandler = MsgHandler {hMsg :: Msg -> IO (Maybe TypedMsg)                            ,hClose:: IO ()}
+
+data TypedMsg = TypedMsg AbsType Msg deriving Show
+
+type TypedMsgHandler = TypedMsg -> IO ()
+
+-- data RouterProtocol = Open Client () | HandleTypedMsg TypedMsg
+
+-- data ClientEvent = ClientClose | ClientMsg Msg (TypedMsg -> IO ()))
+
+onTypedMsg
+  :: Eq k =>
+     TChan (k, TypedMsg)
+     -> k -> (AbsType -> Msg -> IO ()) -> IO (Connection TypedMsg)
+onTypedMsg msgBus name act = do 
+  bus <- X.joinBus msgBus name
+  forkIO $ forever $ do
+    TypedMsg msgType msgBody <- X.input bus
+    act msgType msgBody
+  return bus
+
+type Msg = L.ByteString
 
 -- router proxy = let (TypeApp r _) = absType proxy in Router r
 router proxy = let (TypeN r _) = typeN (absType proxy) in Router r
@@ -49,7 +76,7 @@ data Client = Client {
    ,clientOpenTime::UTCTime
   }
 
-fromClient :: Client -> IO L.ByteString
+fromClient :: Client -> IO Msg
 fromClient = WS.receiveData . clientConn
 
 toClient :: Client -> L.ByteString -> IO ()
