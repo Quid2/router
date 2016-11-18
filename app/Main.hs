@@ -46,7 +46,7 @@ import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import qualified Network.WebSockets                   as WS
 import           Pandoc.Report
 import           Quid2.Util.Service
-import           Repo.DB
+import           Repo.Disk(dbRepo)
 import qualified Repo.Types                           as R
 import           System.Directory
 import           System.IO                            (stdout)
@@ -91,19 +91,10 @@ setup cfg = do
 
   runServices
 
-  -- local ADTS definition cache
-  db <- openDB (stateDir cfg)
-  --dbgS (stateDir cfg)
-  let dbRepo = R.Repo {R.get = \ref -> do
-                          mr <- getDB db ref
-                          --print (unwords ["get",show ref,show mr])
-                          --dbg ["get",show ref,show $ isJust mr]
-                          return mr
-                      ,R.put = \adt -> do
-                          --dbg ["put",prettyShow adt]
-                          putDB db (refS adt) adt
-                      }
-  let adtSolver t = ((\env -> AbsoluteType (M.fromList env) t) <$>) <$> solveType dbRepo def t
+  repo <- dbRepo (stateDir cfg)
+  -- loca ADTS definition cache
+  --let adtSolver t = ((\env -> AbsoluteType (M.fromList env) t) <$>) <$> solveType repo def t
+  let adtSolver t = solveType repo def t
 
   -- Keep track of open/closed connections
   warpState <- newWarpState
@@ -116,7 +107,6 @@ setup cfg = do
   byAnyRouter <- Network.Router.ByAny.newRouter bus
   byTypeRouter <- Network.Router.ByType.newRouter bus
   byPatternRouter <- Network.Router.ByPattern.newRouter bus adtSolver
-  --byTypeRouters <- newByTypeRouters
   let routers = [echoRouter,byAnyRouter,byTypeRouter,byPatternRouter]
   let routersMap = foldr (\r -> M.insert (routerKey r) r) M.empty routers
   let version = unwords [__DATE__,__TIME__,"(compiler local time)"]
@@ -224,7 +214,7 @@ application st routers pending = do
           -- -- Failure
         --   sendValue (Failure "You are NOT welcome")
         --   WS.sendClose conn (T.pack "Sad!")
-        Nothing -> fail ["Unsupported Top Protocol",show protType]
+        Nothing -> fail ["Unsupported Protocol",show protType]
 
 --getTypes gt = let TypeN rType vTypes = typeN gt in (rType,map (\(TypeN t []) -> t) vTypes)
 getTypes gt = let TypeN rType vTypes = typeN gt in (rType,map typeA vTypes)

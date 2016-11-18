@@ -76,7 +76,7 @@ setup cfg = do
 
       agent db = do
         msg <- await
-        -- dbg  ["MSG",show msg]
+        dbg  ["MSG",show msg]
         case msg of
           Record adt -> do
             --dbg ["Record",prettyShow (refS adt),show (refS adt),prettyShow adt]

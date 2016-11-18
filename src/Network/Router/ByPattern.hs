@@ -52,15 +52,14 @@ newRouter msgBus solver = do
         )]
 
       handle st bus solver [t] bs = do
-        let ByPattern pat :: ByPattern (Pattern WildCard) = decodeOK bs
+        let ByPattern pat :: ByPattern () = decodeOK bs
         eenv <- solver t
         case eenv of
           Left err -> error $ unwords ["Cannot locate definition of",show t,show err]
           Right env -> do
             let Right pp = envPattern env pat
             let chk = match (matcher pp) . L.toStrict
-            let ef conn = Entry conn pat chk -- ) (\source msg -> source /= myConn && chk msg)
-            -- let e = Entry myConn (Just pat) (\source msg -> chk (L.toStrict msg))
+            let ef conn = Entry conn pat chk
             return $ route ef t bus st
 
       route ef t bus st myConn = do

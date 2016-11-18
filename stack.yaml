@@ -11,9 +11,8 @@ packages:
 
 - location:
     git: https://github.com/tittoassini/top
-    commit: a7a0bd6e374b12a1c995a1b506a686e9b302c1d5
+    commit: 7509f2fd89204b23cc0039e7484860487ca3a160
   extra-dep: true
-
 - location:
     git: https://github.com/tittoassini/typed
     commit: 00b39b1e94dc2a047e6371a1622c8ee411882efe

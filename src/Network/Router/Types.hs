@@ -22,6 +22,7 @@ import           Network.Bus as X
 import           Data.Time.Util
 import           Repo.Types
 import Control.Concurrent
+--import Control.Concurrent.Async
 
 type Routers = M.Map AbsRef Router
 
@@ -53,7 +54,9 @@ onTypedMsg
      -> k -> (AbsType -> Msg -> IO ()) -> IO (Connection TypedMsg)
 onTypedMsg msgBus name act = do 
   bus <- X.joinBus msgBus name
-  forkIO $ forever $ do
+  -- If this fails, we lose the connection among routers
+  -- waitCatch $ async $ do
+  forkIO $ forever $ strictTry $ do
     TypedMsg msgType msgBody <- X.input bus
     act msgType msgBody
   return bus
