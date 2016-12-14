@@ -1,13 +1,15 @@
+{-# LANGUAGE CPP                       #-}
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RecursiveDo               #-}
-{-# LANGUAGE TupleSections           ,CPP  #-}
+{-# LANGUAGE TupleSections             #-}
 module Data.Pattern.X64 where
 import           CodeGen.X86
 import           Control.Monad            (when)
 import qualified Data.ByteString          as B
 import qualified Data.ByteString.Internal as B
 import qualified Data.Map                 as M
+import           Data.Pattern.Matcher
 import           Data.Pattern.Types
 import           Data.Typed               hiding (label)
 import           Data.Word
@@ -41,7 +43,7 @@ matcher = compile . matcherCode
 
 -- CHK: stack overflow for deeply nested structures?
 matcherCode pm = mdo
-  -- bt (addr8 arg3) al 
+  -- bt (addr8 arg3) al
   -- bt (addr16 arg3) ax
   let (tt,pat) = mapPM (boolsSplit 8) pm
 
@@ -109,7 +111,7 @@ matcherCode pm = mdo
       --dbg ax >> dbg ptr >> dbg (addr8 ptr) >> dbg totBits >> dbg topBit
 
       case solve t ll of
-        Just l -> (if isTail then jmp else call . ipRelValue) l
+        Just l  -> (if isTail then jmp else call . ipRelValue) l
         Nothing -> return ()
 
       -- dbg bx >> dbg ptr >> dbg (addr8 ptr) >> dbg totBits >> dbg topBit
@@ -132,9 +134,9 @@ matcherCode pm = mdo
 
     -- both empty branches are already converted to Skip1
     if2 (BCon []) (BCon []) = return ()
-    if2 (BCon []) r = unless bitLeft (matchTree r)
-    if2 l (BCon []) = unless bitRight (matchTree l)
-    if2 l r = if_ bitLeft (matchTree l) (matchTree r)
+    if2 (BCon []) r         = unless bitLeft (matchTree r)
+    if2 l (BCon [])         = unless bitRight (matchTree l)
+    if2 l r                 = if_ bitLeft (matchTree l) (matchTree r)
 
     compType (t,tree) = (t,) <$> compileType (t,tree)
 

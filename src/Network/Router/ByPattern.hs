@@ -3,6 +3,7 @@ module Network.Router.ByPattern(newRouter) where
 
 import qualified Data.ByteString.Lazy   as L
 import           Data.Pattern.Haskell
+import           Data.Pattern.Matcher
 import           Data.Pattern.Types
 import qualified ListT                  as T
 import           Network.Router.Types

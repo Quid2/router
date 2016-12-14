@@ -15,20 +15,18 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Network.Bus,Network.Router.ByAny,Network.Router.ByType,Network.Router.ByPattern,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Quid2.Util.Dir,Quid2.Util.Service,Util,Data.Pattern.Haskell,Data.Pattern.X64
+  exposed-modules:     Network.Bus,Network.Router.ByAny,Network.Router.ByType,Network.Router.ByPattern,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Data.Pattern.Haskell,Data.Pattern.X64,Data.Pattern.Matcher
   build-depends:       base >= 4.7 && < 5
                      , bytestring
                      , containers
                      , data-default
                      , deepseq >= 1.4.1.1
-                     , directory
-                     , filepath
+
+
                      , flat
                      , ghc
                      , ghc-paths
                      , hashable
-                     , hdaemonize
-                     , hslogger
                      , list-t
                      , model
                      , pandoc
@@ -43,6 +41,7 @@ library
                      , typed
                      , unix
                      , websockets
+                     , ListLike,top-apps
                      --, memory
   if (arch(x86_64))
     build-depends:  x86-64bit>=0.4.4
@@ -70,24 +69,11 @@ executable quid2.net
                      --, xformat
                      , scotty>=0.7.2
                      , stm,transformers
-                     , typed, top,router
+                     , typed, top,router,top-apps
                      -- , x86-64bit
 
   default-language:    Haskell2010
 
-executable quid2-repo
-  hs-source-dirs:      app
-  main-is:             Repo.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-  -- other-modules:       Repo.DB
-  build-depends:       base
-                     , bytestring
-                     , hslogger
-                     , text
-                     , containers,filepath,mtl,blaze-html,warp,wai,wai-extra,scotty
-                     , typed, top,router,ListLike
-
-  default-language:    Haskell2010
 
 -- executable quid2-ghc
 --   hs-source-dirs:      src

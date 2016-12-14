@@ -4,27 +4,11 @@ resolver: lts-6.22
 # Local packages, usually specified by relative directory name
 packages:
 - '.'
-#- ../model
-#- ../flat
-#- ../typed
-# - ../top
-
-- location:
-    git: https://github.com/tittoassini/top
-    commit: 7509f2fd89204b23cc0039e7484860487ca3a160
-  extra-dep: true
-- location:
-    git: https://github.com/tittoassini/typed
-    commit: 00b39b1e94dc2a047e6371a1622c8ee411882efe
-  extra-dep: true
-- location:
-   git: https://github.com/tittoassini/flat
-   commit: 3771f5946dd506c6f199aa4047186d5b57bdce5f
-  extra-dep: true
-- location:
-   git: https://github.com/tittoassini/model
-   commit: b05a56a993213271e3b13d28a5e8bb90c9d8576f
-  extra-dep: true
+- ../model
+- ../flat
+- ../typed
+- ../top
+- ../top-apps
 
 - location:
     git: https://github.com/divipp/x86-64
@@ -35,9 +19,8 @@ packages:
 extra-deps:
 - hslogger-1.2.9
 # - x86-64bit-0.4.4
-
 # - plugins-1.5.5.0
-# - ed25519-0.0.5.0
+- ed25519-0.0.5.0
 
 # Override default flag values for local packages and extra-deps
 flags: {}

@@ -1,15 +1,16 @@
 module Data.Pattern.Haskell where
 
-import qualified Data.ByteString          as B
-import qualified Data.ByteString.Lazy          as L
+import qualified Data.ByteString      as B
+import qualified Data.ByteString.Lazy as L
 -- import qualified Data.ByteString.Internal as B
 -- import qualified Data.Map                 as M
+import           Control.Monad
+import           Data.Binary.Bits.Get
+import           Data.Bits
+import           Data.Pattern.Matcher
 import           Data.Pattern.Types
-import           Data.Typed hiding (label)
+import           Data.Typed           hiding (label)
 import           Data.Word
-import Data.Binary.Bits.Get
-import Data.Bits
-import Control.Monad
 
 matchPM :: PatternMatcher -> B.ByteString -> Bool -- (Either MatchError Bool)
 matchPM = match . matcher
@@ -34,7 +35,7 @@ match__ (tt,pat) = do
   mapM_ matchPattern pat
   return True
   where
-      matchPattern (MatchType t) = matchType t
+      matchPattern (MatchType t)    = matchType t
       matchPattern (MatchBits bits) = mapM_ matchBits bits
       matchBits (Bits8 n v) = do
         r <- xor v <$> getWord8 n -- getWord8 returns bits is lsb
