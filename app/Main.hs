@@ -5,53 +5,41 @@
 {-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TupleSections        #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE ViewPatterns         #-}
+{-# LANGUAGE TupleSections        ,ViewPatterns #-}
+{-# LANGUAGE TypeSynonymInstances ,BangPatterns #-}
 module Main where
 
-import           Control.Applicative
-import           Control.Concurrent                   (MVar, modifyMVar,
-                                                       modifyMVar_, newMVar,
-                                                       readMVar,forkIO)
-import           Control.Concurrent.STM
-import           Control.Exception                    (fromException, handle)
+import           Control.Concurrent             (MVar, forkIO, modifyMVar,
+                                                 modifyMVar_, newMVar, readMVar)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Bifunctor
-import qualified Data.ByteString.Char8
-import qualified Data.ByteString.Lazy                 as L
-import           Data.FileEmbed                       (embedDir)
-import           Data.Foldable                        (toList)
+import qualified Data.ByteString                as B
+import qualified Data.ByteString.Lazy           as L
+import           Data.Either
 import           Data.List
-import qualified Data.Map.Strict                      as M
+import qualified Data.Map.Strict                as M
 import           Data.Maybe
-import qualified Data.Text                            as T
-import qualified Data.Text.Lazy                       as TL
+import qualified Data.Text                      as T
+import qualified Data.Text.Lazy                 as TL
 import           Data.Time.Util
-import           Data.Typed                           hiding (first)
 import           Data.Word
+import qualified Network.Router.ByAny
 import qualified Network.Router.ByPattern
 import qualified Network.Router.ByType
-import qualified Network.Router.ByAny
 import qualified Network.Router.Echo
 import           Network.Router.Types
-import           Network.Top                          hiding (Config, first)
-import qualified Network.Top                          as Top
+import           Network.Top                    hiding (Config, first)
 import qualified Network.Wai
-import qualified Network.Wai.Application.Static       as Static
-import qualified Network.Wai.Handler.Warp             as Warp
-import qualified Network.Wai.Handler.WebSockets       as WaiWS
-import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
-import qualified Network.WebSockets                   as WS
-import           Pandoc.Report
+import qualified Network.Wai.Handler.Warp       as Warp
+import qualified Network.Wai.Handler.WebSockets as WaiWS
+import qualified Network.WebSockets             as WS
 import           Quid2.Util.Service
-import           Repo.Disk(dbRepo)
-import qualified Repo.Types                           as R
-import           System.Directory
-import           System.IO                            (stdout)
-import           Util
+import           Repo.Disk                      (dbRepo)
+import           System.IO                      (stdout)
 import           Web.Scotty
+import           ZM                             hiding (first)
+import Network.Top.Util
 
 {-
 SOL: start manually as (already done by propellor):
@@ -65,7 +53,7 @@ killall -s SIGKILL quid2-net; /root/.cabal/bin/quid2-net > /dev/null 2>&1 &
 
  Hosts all endpoints that require a fixed url address.
 
- http:80nb
+ http:80
  /  Return activity report.
 ?? /hook    HTTP call backs.
 
@@ -91,8 +79,10 @@ setup cfg = do
 
   runServices
 
+  -- local ADTS definition cache
   repo <- dbRepo (stateDir cfg)
-  -- loca ADTS definition cache
+  dbgS (stateDir cfg)
+
   --let adtSolver t = ((\env -> AbsoluteType (M.fromList env) t) <$>) <$> solveType repo def t
   let adtSolver t = solveType repo def t
 
@@ -109,9 +99,9 @@ setup cfg = do
   byPatternRouter <- Network.Router.ByPattern.newRouter bus adtSolver
   let routers = [echoRouter,byAnyRouter,byTypeRouter,byPatternRouter]
   let routersMap = foldr (\r -> M.insert (routerKey r) r) M.empty routers
-  let version = unwords [__DATE__,__TIME__,"(compiler local time)"]
+  let serverVersion = unwords [__DATE__,__TIME__,"(compiler local time)"]
   startupTime <- getCurrentTime
-  serverReport <- newServiceReport serviceName version startupTime (warpReport warpState : map routerReport routers)
+  serverReport <- newServiceReport serviceName serverVersion startupTime (warpReport warpState : map routerReport routers)
   --asText serverReport >>= dbg1
 
   sapp :: Network.Wai.Application <- scottyApp $ do
@@ -121,13 +111,13 @@ setup cfg = do
 
      -- Return Server report in binary format
      get "/report" $ do
-       r <- liftIO (flat <$> warpBinaryReport version startupTime warpState (mapM routerBinaryReport routers))
+       r <- liftIO (L.fromStrict . flat <$> warpBinaryReport serverVersion startupTime warpState (mapM routerBinaryReport routers))
        setHeader "Access-Control-Allow-Origin" "*"
        setHeader "Content-Type" "application/octet-stream"
        raw r
 
-  let warpOpts = Warp.setLogger noRequestLogger . Warp.setOnClose onClose . Warp.setOnOpen onOpen . Warp.setPort 80 . Warp.setTimeout 60 $ Warp.defaultSettings
-  -- let warpOpts =  Warp.setOnClose onClose . Warp.setOnOpen onOpen . Warp.setPort 80 . Warp.setTimeout 60 $ Warp.defaultSettings
+  --let warpOpts = Warp.setLogger noRequestLogger . Warp.setOnClose onClose . Warp.setOnOpen onOpen . Warp.setPort 80 . Warp.setTimeout 60 $ Warp.defaultSettings
+  let warpOpts =  Warp.setOnClose onClose . Warp.setOnOpen onOpen . Warp.setPort 80 . Warp.setTimeout 60 $ Warp.defaultSettings
 
   connCounter <- newMVar 0
   Warp.runSettings warpOpts $ WaiWS.websocketsOr (WS.defaultConnectionOptions {WS.connectionOnPong=dbgS "Pong!"}) (application connCounter routersMap) sapp -- staticApp
@@ -145,9 +135,12 @@ application st routers pending = do
     conn <- WS.acceptRequestWith pending (WS.AcceptRequest $ Just chatsProtocol)
     let
         fail reasons = do
-          let msg = TL.pack . unwords $ "Error while initialising connection:" : reasons
-          sendValue $ Failure (TL.toStrict msg)
-          WS.sendClose conn msg
+          let msg = unwords $ "Error while initialising connection:" : reasons
+          --dbg ["fail",msg]
+          sendValue $ Failure msg -- (TL.toStrict msg)
+          --threadDelay (seconds 15)
+          --dbg ["fail close",msg]
+          WS.sendClose conn (TL.pack msg)
           err reasons
 
         sendValue :: WSChannelResult -> IO ()
@@ -164,11 +157,11 @@ application st routers pending = do
      Left e -> fail ["Bad protocol type data",show e]
      Right (TypedBLOB protType@(getTypes -> (rType,vTypes)) protBytes) -> do
        let bs = unblob protBytes
-       dbg ["got router type",show protType,show protBytes,show $ L.unpack bs]
+       dbg ["got router type",show protType,show protBytes,show $ B.unpack bs]
        case M.lookup rType routers of
         Just router -> do
           -- sendValue Success
-          -- n <- connNum st
+          -- n <- connNum s
           -- client <- newClient n conn
           -- WS.forkPingThread conn 20
           -- handlerOK <- try (routerHandler router adtSolver vTypes bs client)
@@ -176,8 +169,9 @@ application st routers pending = do
           --   Left (e::SomeException) -> fail [show e,show protType]
           --   Right () -> return ()
 
-          -- Validate connection first
-          ehandler <- try $ routerClientHandler router vTypes bs
+          -- Validate connection first (this is not working)
+          ehandler <- routerClientHandler router vTypes (L.fromStrict bs)
+          dbg ["handler for",show protType,"present",show $ isRight ehandler]
           case ehandler of
             Left e -> fail [e,show protType]
             Right handler -> do
@@ -249,3 +243,5 @@ warpBinaryReport version startupTime warpState subs = do
 -- t = absType (Proxy::Proxy WarpReport)
 
 runServices = return ()
+
+

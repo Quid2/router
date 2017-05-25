@@ -3,7 +3,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RecursiveDo               #-}
 {-# LANGUAGE TupleSections             #-}
-module Data.Pattern.X64 where
+module Data.Pattern.X64(match, matcher) where
 import           CodeGen.X86
 import           Control.Monad            (when)
 import qualified Data.ByteString          as B
@@ -11,11 +11,12 @@ import qualified Data.ByteString.Internal as B
 import qualified Data.Map                 as M
 import           Data.Pattern.Matcher
 import           Data.Pattern.Types
-import           Data.Typed               hiding (label)
+import           ZM               hiding (label)
 import           Data.Word
 import           Foreign
 import           System.IO.Unsafe         (unsafePerformIO)
 -- import Data.Memory.Endian
+import Data.Pattern.Bits
 
 foreign import ccall "dynamic" callWW :: FunPtr (Int -> Int -> Ptr Word8 -> IO Word8) -> Int -> Int -> Ptr Word8 -> IO Word8
 instance Callable (Int -> Int -> Ptr Word8 -> IO Word8) where dynCCall = callWW
@@ -42,10 +43,13 @@ matcher = compile . matcherCode
 -- #define ZZ -- INCOMPLETE
 
 -- CHK: stack overflow for deeply nested structures?
+matcherCode
+  :: (Foldable t, Functor t) =>
+     (M.Map AbsType BTree, t (Match [Bit])) -> CodeM ()
 matcherCode pm = mdo
   -- bt (addr8 arg3) al
   -- bt (addr16 arg3) ax
-  let (tt,pat) = mapPM (boolsSplit 8) pm
+  let (tt,pat) = mapPM (listSplit 8) pm
 
   -- Inputs
   let bsOffset = arg1
@@ -94,9 +98,9 @@ matcherCode pm = mdo
 
   let
 
-    matchPattern (MatchType t) = matchType False t
+    matchPattern (MatchAny t) = matchType False t
 
-    matchPattern (MatchBits bs) = do
+    matchPattern (MatchValue bs) = do
       -- sum lenght of all bit fields
       ensureBits $ sum $ map length bs
       mapM_ matchBits bs
@@ -156,7 +160,7 @@ matcherCode pm = mdo
     cmpBits n bs | n == 1 = do
 
                      peekBit
-                     j (if bs == [True] then bitLeft else bitRight) retFalse
+                     j (if bs == [V1] then bitLeft else bitRight) retFalse
 
                      --dbg ptr >> dbg (addr8 ptr) >> dbg totBits >> dbg topBit
                      dropBits 1

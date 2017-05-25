@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Network.Router.Echo(newRouter) where
 
@@ -26,7 +27,7 @@ newRouter = do
          dbg ["Protocol ECHO started",show echoBytes]
          let echo :: Echo () = decodeOK echoBytes
          dbg ["Protocol ECHO",show echo]
-         return (handle state echo)
+         return $ Right (handle state echo)
 
        handle state echo client = do
          atomically $ S.insert client state

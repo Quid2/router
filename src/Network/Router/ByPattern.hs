@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Network.Router.ByPattern(newRouter) where
 
@@ -9,9 +10,13 @@ import qualified ListT                  as T
 import           Network.Router.Types
 import           Network.Router.Util
 import qualified STMContainers.Multimap as SMM
+import           System.Timeout
+import           Network.Top.Util
+import Control.Monad
 
-instance Hashable v => Hashable (Pattern v)
-instance Hashable WildCard
+instance Hashable v => Hashable (Match v)
+--instance Hashable v => Hashable (Pattern v)
+-- instance Hashable WildCard
 
 type State = SMM.Multimap AbsType Entry
 
@@ -23,7 +28,7 @@ entriesByType st t = atomically . T.toList $ SMM.streamByKey t st
 
 data Entry = Entry {
   eClient   ::Client
-  ,ePattern ::Pattern WildCard
+  ,ePattern ::Pattern
   ,eMatcher ::L.ByteString -> Bool
   }
 
@@ -34,6 +39,8 @@ instance Hashable Entry where hashWithSalt salt e =  salt `hashWithSalt` eClient
 
 instance Show Entry where show e =  unwords ["ByPattern" ++ (show . eClient $ e),show . ePattern $ e]
 
+-- ByPattern need to know the definition of the type references by the patterns
+-- so it depends on the Repo service and/or its local data type definitions cache
 newRouter msgBus solver = do
   state <- newState
   bus <- onTypedMsg msgBus "Pattern" (\msgType msgBody -> forward (const True) state msgType msgBody)
@@ -54,14 +61,20 @@ newRouter msgBus solver = do
 
       handle st bus solver [t] bs = do
         let ByPattern pat :: ByPattern () = decodeOK bs
-        eenv <- solver t
-        case eenv of
-          Left err -> error $ unwords ["Cannot locate definition of",show t,show err]
-          Right env -> do
-            let Right pp = envPattern env pat
-            let chk = match (matcher pp) . L.toStrict
-            let ef conn = Entry conn pat chk
-            return $ route ef t bus st
+        dbgS "ByPattern solving"
+        --eme ::  Either SomeException (Maybe (Either String AbsTypeModel))<- try $ timeout (seconds 11) $ solver t
+        ev <- join <$> withTimeout 11 (solver t)
+        dbg ["ByPattern solved",take 100 $ show ev]
+        case ev of
+          Left err -> return . Left $ unwords ["Cannot locate definition of",show t,show err]
+          --Right me -> case me of
+            --Nothing -> return . Left $ unwords ["Cannot locate definition of",show t]
+            --Just e -> case e of
+            --  Left err -> return . Left $ unwords ["Cannot locate definition of",show t,show err]
+          Right tm -> do
+                let chk = matchPM (patternMatcher tm pat) . L.toStrict
+                let ef conn = Entry conn pat chk
+                return . Right $ route ef t bus st
 
       route ef t bus st myConn = do
         let me = ef myConn

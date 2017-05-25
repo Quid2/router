@@ -1,14 +1,16 @@
 {-# LANGUAGE TemplateHaskell ,DeriveGeneric #-}
 module Data.Pattern.Test where
 
+import Data.Pattern.Matcher
 import Data.Pattern.Types
-import Data.Pattern.ToHaskell
+--import Data.Pattern.ToHaskell
+import Data.Pattern.Haskell
 import Data.Word
-import Data.Typed
+import ZM
 
 -- Convert Pattern to Matcher
 -- Compile Matcher to code
--- Apply code to values 
+-- Apply code to values
 
 -- $(defPattern "BellsPatt" ''(Message Content) [p| Message "titto" _ (Bell b)|])
 
@@ -50,7 +52,7 @@ instance Model a => Model (List a)
 -- x = let bySubject = $(filterPatternQ [p|Message _ subj (Bell v)|])
 --     in bySubject (prefixPattern ["Haskell","Meeting"]) (valPattern (11::Word8))
 
-x = filterPatternQ [p|Message _ subj (Bell v)|] >>= print
+-- x = filterPatternQ [p|Message _ subj (Bell v)|] >>= print
 
 --x = filterPatternQ [p|Message _ subj (Bell v)|]
 

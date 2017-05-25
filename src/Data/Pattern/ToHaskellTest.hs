@@ -9,7 +9,7 @@ module Data.Pattern.ToHaskellTest where
 import           Data.Flat
 import           Data.Model
 import           Data.Pattern.ToHaskell
-import           Data.Typed
+import           ZM
 -- import Network.Bot.Chat.Model
 import           Data.Pattern.Types
 --import Language.Haskell.TH
@@ -17,7 +17,7 @@ import           Data.Pattern.Types
 --import qualified QQ.Pattern.ABC as ABC
 import qualified Data.ByteString.Lazy   as L
 --import qualified QQ.Pattern.P1 as P1
--- import Data.Typed.GHC
+-- import ZM.GHC
 import Data.Pattern.Test
 pattern
 t = main

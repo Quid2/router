@@ -12,7 +12,7 @@ import qualified Control.Monad.Reader    as R
 import           Control.Monad.Trans.RWS
 import           Data.Bifunctor
 import qualified Data.ByteString         as B
-import           Data.Digest.SHA3
+import           Data.Digest.Keccak
 import           Data.Either
 import           Data.Foldable
 import           Data.Functor.Identity
@@ -25,8 +25,8 @@ import Data.Pattern.Types hiding (Var)
 import qualified Data.Text               as T
 import qualified Data.Text.IO               as T
 import           Data.Text.Encoding      (encodeUtf8)
-import           Data.Typed              hiding (mdlName,txt)
-import           Data.Typed.Transform
+import           ZM              hiding (mdlName,txt)
+import           ZM.Transform
 import           Data.Word
 import           System.Directory
 import           System.FilePath
@@ -146,7 +146,7 @@ moduleE ref = do
 moduleS :: AbsRef -> M DT
 moduleS ref = do
       adt <- asks (fromJust . M.lookup ref) -- unused?
-      -- let adt = adt0 {declName = LocalName $ declName adt0}      
+      -- let adt = adt0 {declName = LocalName $ declName adt0}
       let nameS = declName $ adt
       let nameT = toText nameS
       let name = moduleNameD_ (nameT,ref)

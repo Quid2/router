@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings ,StandaloneDeriving  #-}
 module Pandoc.Report(Report(..),report,newServiceReport,asText,asHTML,p,bulletList) where
 
-import           Control.Applicative
+-- import           Control.Applicative
 import           Data.Default
 import           Text.Pandoc.Builder
 import           Text.Pandoc.Writers.HTML

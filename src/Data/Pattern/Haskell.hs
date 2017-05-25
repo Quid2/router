@@ -1,61 +1,59 @@
-module Data.Pattern.Haskell where
+module Data.Pattern.Haskell (matchPM,match, matcher) where
 
+import           Control.Monad
+import           Data.Bits
 import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as L
--- import qualified Data.ByteString.Internal as B
--- import qualified Data.Map                 as M
-import           Control.Monad
-import           Data.Binary.Bits.Get
-import           Data.Bits
+import           Data.Either
+import           Data.Flat
+import           Data.Flat.Decoder
+import           Data.Model           (solve)
+import           Data.Pattern.Bits
 import           Data.Pattern.Matcher
-import           Data.Pattern.Types
-import           Data.Typed           hiding (label)
-import           Data.Word
+import Debug.Trace
 
 matchPM :: PatternMatcher -> B.ByteString -> Bool -- (Either MatchError Bool)
 matchPM = match . matcher
 
-match :: Get Bool -> B.ByteString -> Bool
-match matcher bs = case runPartialGet matcher (L.fromStrict bs) 0 of
-                Left _ -> False
-                -- Left "f" -> False
-                -- Left "not enough bytes" -> False -- Left NotEnoughData
+-- match :: Get Bool -> B.ByteString -> Bool
+match dec bs = either (const False) (const True) $ unflatWith dec bs
 
-                Right (True,bs,usedBits) -> (L.length bs==1 && shiftR (shiftL (L.head bs) usedBits) usedBits == 1) || (L.length bs==2 && usedBits==8 && L.head (L.tail bs) == 1)
-                -- | L.length bs==2 -> shiftR (shiftL (L.head bs) usedBits) usedBits == 0 && L.head (L.tail bs) == 1
+-- match matcher bs = case runPartialGet matcher (L.fromStrict bs) 0 of
+--                 Left _ -> False
+--                 -- Left "f" -> False
+--                 -- Left "not enough bytes" -> False -- Left NotEnoughData
 
-                -- Right (True,bs,usedBits) -> error. unwords $ ["Unexpected return from runPartialGet",show $ L.length bs,show usedBits]
+--                 Right (True,bs,usedBits) -> (L.length bs==1 && shiftR (shiftL (L.head bs) usedBits) usedBits == 1) || (L.length bs==2 && usedBits==8 && L.head (L.tail bs) == 1)
+
+--                 -- Right (True,bs,usedBits) -> error. unwords $ ["Unexpected return from runPartialGet",show $ L.length bs,show usedBits]
 
 -- match_  bs = runPartialGet matchAll (L.fromStrict bs) 0
 -- match_ :: PatternMatcher -> B.ByteString -> Bool -- (Either MatchError Bool)
-matcher :: PatternMatcher -> Get Bool
+matcher :: PatternMatcher -> Get ()
 matcher = match__ . mapPM bitSplit
 
 match__ (tt,pat) = do
   mapM_ matchPattern pat
-  return True
   where
-      matchPattern (MatchType t)    = matchType t
-      matchPattern (MatchBits bits) = mapM_ matchBits bits
-      matchBits (Bits8 n v) = do
-        r <- xor v <$> getWord8 n -- getWord8 returns bits is lsb
-        when (r/=0) $ fail "f"
-      matchBits (Bits16 n v) = do
-        r <- xor v <$> getWord16be n
-        when (r/=0) $ fail "f"
-      matchBits (Bits32 n v) = do
-        r <- xor v <$> getWord32be n
-        when (r/=0) $ fail "f"
-      matchBits (Bits64 n v) = do
-        r <- xor v <$> getWord64be n
-        when (r/=0) $ fail "f"
+      matchPattern (MatchAny t)      = matchType t
+      matchPattern (MatchValue bits) = mapM_ matchBits bits
+      matchBits (Bits8 n v) = tst n v dBEBits8
+      matchBits (Bits16 n v) = tst n v dBEBits16
+      matchBits (Bits32 n v) = tst n v dBEBits32
+      matchBits (Bits64 n v) = tst n v dBEBits64
+      --   r <- xor v <$> dBEBits64 n
+      --   return (r==0)  -- when (r/=0) $ fail "f"
       matchType t = matchTree (solve t tt)
       matchTree (BFork l r) = do
-        b <- getBool
+        b <- dBool
         if b then matchTree r else matchTree l
       matchTree (BCon ts) = mapM_ matchType ts
       matchTree (Skip n) = dropBits n
-      -- matchTree (Skip n) | n <=8 = void $ getWord8 n
+      tst n v d = do
+        decoded <- d n
+        let r = xor v decoded
+        traceM $ unwords ["compare",show n,"bits of",show v,"with",show decoded]
+        when (r/=0) $ fail "matcher failed"
 
 -- import Control.Monad.State.Strict
 -- import Control.Monad.Catch
@@ -72,4 +70,8 @@ match__ (tt,pat) = do
 --   vb <- gets validBits
 --   when (vb < n) $ throwM NotEnoughData
 --   shiftL (8-vb) . B.head <$> gets bs
+
+
+
+
 

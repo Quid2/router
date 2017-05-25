@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables ,OverloadedStrings #-}
-module Data.Typed.GHC where
+module ZM.GHC where
 
 import qualified Bag                 as GHC
 import           Control.Exception

@@ -1,7 +1,8 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Network.Router.ByType(newRouter) where
 
-import qualified Data.ByteString.Lazy   as L
+-- -- -- import qualified Data.ByteString.Lazy   as L
 import qualified ListT                  as T
 import           Network.Router.Types
 import           Network.Router.Util
@@ -35,7 +36,7 @@ newRouter msgBus = do
 
       handle st bus [t] bs = do
         let ByType :: ByType () = decodeOK bs
-        return $ route t bus st
+        return . Right $ route t bus st
 
       route t bus st me = do
         liftIO $ dbg ["Protocol ByType",show t,show me]

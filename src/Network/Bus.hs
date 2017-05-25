@@ -1,6 +1,6 @@
 module Network.Bus(Connection(..),newBus,joinBus) where
 import Control.Concurrent.STM
-import Control.Concurrent.STM.TChan
+-- -- import Control.Concurrent.STM.TChan
 import Network.Top.Types(Connection(..))
 
 t = do
@@ -12,7 +12,7 @@ t = do
   False <- input c1
   True <- input c2
   print "OK"
- 
+
 type Bus source value = TChan (source,value)
 
 newBus :: IO (TChan a)

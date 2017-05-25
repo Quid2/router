@@ -4,23 +4,23 @@ module Network.Router.Types(
   ,Client,newClient,fromClient,toClient,asClientReport
   ,Word8
   ,module X) where
-import Data.Flat
-import Data.Typed
+-- import Data.Flat
+import ZM
 import Data.Word
 import Pandoc.Report as X
 import Control.Concurrent.STM as X
 import qualified Data.Map.Strict                      as M
 import           Data.Hashable as X
-import           Control.Applicative
+-- import           Control.Applicative
 import qualified Network.WebSockets                   as WS
-import GHC.Generics
-import Data.Typeable
+-- import GHC.Generics
+-- import Data.Typeable
 import Network.Top.Util
 import qualified Data.ByteString.Lazy as L
 import           Model.Report as X
 import           Network.Bus as X
 import           Data.Time.Util
-import           Repo.Types
+-- import           Repo.Types
 import Control.Concurrent
 --import Control.Concurrent.Async
 
@@ -36,7 +36,7 @@ data Router = Router {
 
 -- type Handler = [AbsType] -> L.ByteString -> IO (Either String (Client -> MsgHandler)
 
-type ClientHandler = [AbsType] -> L.ByteString -> IO (Client -> IO ())
+type ClientHandler = [AbsType] -> L.ByteString -> IO (Either String (Client -> IO ()))
 
 --data MsgHandler = MsgHandler {hMsg :: Msg -> IO (Maybe TypedMsg)                            ,hClose:: IO ()}
 
@@ -95,6 +95,7 @@ instance Hashable AbsRef
 instance Hashable a => Hashable (Type a)
 instance Hashable a => Hashable (ADTRef a)
 instance Hashable a => Hashable (SHA3_256_6 a)
+instance Hashable a => Hashable (SHAKE128_48 a)
 instance Hashable Identifier
 instance Hashable UnicodeSymbol
 instance Hashable UnicodeLetter

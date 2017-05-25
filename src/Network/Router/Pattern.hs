@@ -1,11 +1,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Network.Hub.Router.Pattern(
-  runClient,newRouter,module X
+  runApp,newRouter,module X
   ) where
 
 -- TODO: factor out duplicate code with RouterClass
 import Network.Hub.Util
-import Network.Hub.Types
+
 
 import qualified Data.ByteString.Lazy   as L
 import qualified ListT                                as T
