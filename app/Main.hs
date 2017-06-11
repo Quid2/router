@@ -71,11 +71,15 @@ serviceName = "quid2.net"
 
 main = initService serviceName setup
 
-setup :: Config () -> IO ()
+-- data Port = Port {port::Int} deriving (Show,Read)
+
+setup :: Config Int -> IO ()
 setup cfg = do
   logLevelOut DEBUG stdout
   -- updateGlobalLogger rootLoggerName $ setLevel DEBUG -- INFO
   -- email titto serviceName "just started"
+
+  let serverPort = fromMaybe 80 $ appConf cfg
 
   runServices
 
@@ -109,7 +113,7 @@ setup cfg = do
      -- middleware logStdoutDev -- NOTE: output on stdout, not log file
      get "/" $ liftIO (TL.pack <$> asHTML serverReport) >>= html
 
-     -- Return Server report in binary format
+     -- Return Server report in binainspectorry format
      get "/report" $ do
        r <- liftIO (L.fromStrict . flat <$> warpBinaryReport serverVersion startupTime warpState (mapM routerBinaryReport routers))
        setHeader "Access-Control-Allow-Origin" "*"
@@ -117,7 +121,7 @@ setup cfg = do
        raw r
 
   --let warpOpts = Warp.setLogger noRequestLogger . Warp.setOnClose onClose . Warp.setOnOpen onOpen . Warp.setPort 80 . Warp.setTimeout 60 $ Warp.defaultSettings
-  let warpOpts =  Warp.setOnClose onClose . Warp.setOnOpen onOpen . Warp.setPort 80 . Warp.setTimeout 60 $ Warp.defaultSettings
+  let warpOpts =  Warp.setOnClose onClose . Warp.setOnOpen onOpen . Warp.setPort serverPort . Warp.setTimeout 60 $ Warp.defaultSettings
 
   connCounter <- newMVar 0
   Warp.runSettings warpOpts $ WaiWS.websocketsOr (WS.defaultConnectionOptions {WS.connectionOnPong=dbgS "Pong!"}) (application connCounter routersMap) sapp -- staticApp
