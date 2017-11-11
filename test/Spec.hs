@@ -1,303 +1,409 @@
-{-# LANGUAGE BangPatterns              #-}
-{-# LANGUAGE FlexibleContexts          #-}
-{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE DeriveAnyClass            #-}
+{-# LANGUAGE DeriveGeneric             #-}
+{-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE StandaloneDeriving        #-}
 {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TupleSections             #-}
-{-# LANGUAGE UndecidableInstances      #-}
-module Main where
-
 import           Control.Applicative
-import           Criterion.Main
-import           Criterion.Types
-import           Data.Bifunctor
-import qualified Data.ByteString       as B
-import qualified Data.ByteString.Lazy  as L
-import           Data.Digest.Keccak
-import           Data.Foldable
+import           Control.Concurrent            (threadDelay)
+import           Control.Concurrent.Async
+import           Control.Concurrent.STM
+import           Control.Exception             (SomeException, catch,
+                                                fromException, handle)
+import           Control.Monad
+import qualified Data.ByteString.Lazy          as BL
+import           Data.Either
 import           Data.Int
+import           Data.IORef
 import           Data.List
-import qualified Data.Map              as M
 import           Data.Maybe
-import           Data.Model            hiding (Con)
 import           Data.Pattern
-import           Data.Pattern.Matcher
-import qualified Data.Text             as T
-import qualified Data.Text
-import           ZM            hiding (Con, Cons, Val, Var)
 import           Data.Word
-import           Debug.Trace
-import           System.Exit         (exitFailure)
-import           Test.Data hiding (V1)
-import           Test.Data.Flat hiding (V1)
-import           Test.Data.Model
-import qualified Test.Data2            as Data2
-import qualified Test.Data3            as Data3
-import           Test.Tasty
-import qualified Test.Tasty            as T
-import           Test.Tasty.HUnit
-import           Test.Tasty.QuickCheck as QC
-import Control.Exception
-import System.IO.Unsafe
+import           Language.Haskell.TH
+import           Network.Top
+import qualified Network.WebSockets            as WS
+import           Network.WebSockets.Connection (sendCloseCode)
+import           System.Exit                   (exitFailure)
+import           System.IO
+import           System.Log.Logger
+import           System.Time.Extra             (duration, showDuration)
+import           ZM
 
--- import Data.Pattern.X64(match,matcher)
-import Data.Pattern.Haskell(matchPM,match,matcher)
-
--- RUN AS: stack test --file-watch :pattern-test
 t = main
 
--- main = mainBench
-main = mainTest
+main = do
+  let dbgLevel = INFO
+  -- let dbgLevel = DEBUG
+  -- updateGlobalLogger rootLoggerName $ setLevel dbgLevel
+  logLevelOut dbgLevel stdout
 
--- FIX
--- pstr2 = patternQ
+  testTop
+  --exitFailure
 
--- test patterns
-pats = mapM patternQ [[p|_|]
-                      ,[p|'c'|]
-                      ,[p|11|]
-                      ,[p|111111|]
-                      ,[p|"abc"|]
-                      ,[p|"abcdefghilmnopqrstuvz"|]
-                      ,[p|'a':_|]
-                      ,[p|'a':_:_:_:'e':'f':'g':'h':_:_:_:_:_:_:_:'r':'s':'t':'u':'v':_|]
-                      ,[p|True|]
-                      ,[p|Cons False (Cons True Nil)|]
-                      ,[p|Cons _ (Cons _ Nil)|]
-                      ,[p|_:True:[]|]
-                      ]
+m = runApp def (byPattern $(patternE [p|Msg "sj" _ Join|])) $ \conn -> do
+  msg::Msg <- input conn
+  print msg
+  --exitFailure
 
-longList = replicate 1000 False
+  --  where
+  -- print $ (ByPattern $(pat [p|False|]) :: ByPattern Bool)
+  --   pat pp = let ByPattern p = byPattern pp in p
+  where
+    --w :: ByPattern a -> Pattern WildCard
 
-mainBench = do
-  [wild,char,n,n2,str0,str,str1,str2,true,list,listWild,listWildS] <- pats
 
-  --print (B.unpack $ ser (Cons False (Cons True Nil)))
-  -- let tst proxy hpat a =
-  --       let
-  --         ByPattern pat = byPattern hpat
-  --         at = absTypeModel proxy
-  --         pp = patternMatcher at pat
-  --         chk = matchPM pp
-  --         bs = ser a
-  --       in bench (unwords["match",show pat,"vs",take 60 $ show a]) $ nf chk bs
-
-  defaultMainWith (defaultConfig {
-                      csvFile=Just "/tmp/testReport.csv"
-                      ,reportFile=Just "/tmp/testReport.html"
-                      ,junitFile=Just "/tmp/testReport.xml"})
-    {-        | listWild | char wild | str     |  str2 wildcards |
-     Haskell  | 2 us    |            | 49 us    | 48            |
-     X64      |
-   -}
-    [benchPat (Proxy :: Proxy Char) char 'c'
-    ,benchPat (Proxy :: Proxy String) str ("abcdefghilmnopqrstuvz"::String)
-    ,benchPat (Proxy :: Proxy (ListS Bool)) listWild (Cons False (Cons True Nil))
-    ,benchPat (Proxy :: Proxy Char) wild 'c'
-    ,benchPat (Proxy :: Proxy [Bool]) wild longList
-    ,benchPat (Proxy :: Proxy String) str2 ("abcdefghilmnopqrstuvz"::String)
+-- TODO: test by sending incorrect router value
+testTop
+    -- We need to save the definitions of the types we use
+    --saveTypes
+ = do
+  let msgs =
+        [ Msg "rob" (Subject ["Joke"]) Join
+        , Msg "sj" (Subject ["Haskell"]) Join
+        , Msg "sj" (Subject ["Haskell"]) (TextMsg "All hail the boss!")
+        , Msg
+            "titto"
+            (Subject ["Haskell", "General"])
+            (TextMsg "Nice language!")
+        ]
+  [pwild, p1, p2, p3, p4, p5, wp, fp, n1] <-
+    mapM
+      patternQ
+      [ [p|_|]
+      , [p|Msg "sj" _ _|]
+      , [p|Msg "sj" _ Join|]
+      , [p|Msg _ _ Join|]
+      , [p|Msg _ (Subject ["Haskell"]) _|]
+      , [p|Msg _ (Subject ["Haskell", _]) _|]
+      , [p|33|]
+      --,[p|-33|] -- unsupported by TH
+      , [p|3.3|]
+      , [p|III {w8 = 11}|]
+      ]
+    -- NOTE: these tests (in particular byAny) will work only on an isolated router
+  let mixTest0 =
+        connTests
+          "Mix"
+          [ -- byAny is hard to test precisely as it will catch any message on the router
+            -- so this really only test that something is received
+              mixt ByAny [typedBLOB 'a'] (AtLeast 10)
+            , mixt ByAny [typedBLOB 'b'] (AtLeast 10)
+          , ttyp ([] :: String) 2 -- Listen for chars, send no messages
+          , mix (byPattern pwild) ([] :: String) 2
+          , ttyp msgs 0
+          , mix (byPattern p1) ([] :: [Msg]) 2
+          , mix (byPattern pwild) ([] :: [Msg]) 4
+          , ttyp [True, False, True] 2
+          , ttyp [False, True] 3
+          , mix (byPattern pwild) ([] :: [Bool]) 5
+          ]
+  let patTest =
+        connTests
+          "ByPattern Msg"
+          [ tpat $(patternE [p|_|]) msgs 0
+          , tpat $(patternE [p|_|]) ([] :: [Msg]) 4
+          , tpat $(patternE [p|Msg "sj" _ _|]) ([] :: [Msg]) 2
+          , tpat $(patternE [p|Msg "sj" _ Join|]) ([] :: [Msg]) 1
+          , tpat $(patternE [p|Msg _ _ Join|]) ([] :: [Msg]) 2
+          , tpat
+              $(patternE [p|Msg _ (Subject ("Haskell":[])) _|])
+              ([] :: [Msg])
+              2
+          , tpat
+              $(patternE [p|Msg _ (Subject ("Haskell":_:[])) _|])
+              ([] :: [Msg])
+              1
+          ]
+  let mixTest1 =
+        connTests
+          "ByPattern [Bool]"
+          [ tpat $(patternE [p|_|]) [[False]] 3
+          , tpat $(patternE [p|_|]) [[True, False, True]] 3
+          , tpat ($(patternE [p|True:_|])) [[True, True]] 2
+          , ttyp [[True]] 3
+          ]
+  let byTypeTest =
+        connTests
+          "ByType [Bool]"
+          [ ttyp [[False]] 4
+          , ttyp [[True, False, True]] 4
+          , ttyp [[True, True]] 4
+          , ttyp [[True], [False]] 3
+          ]
+  let unknownTest =
+        connTests
+          "Unknown"
+          [ tpat $(patternE [p|_|]) [Unknown] 0
+          --,ttyp                          [Unknown] 0
+          ]
+    -- Test have to be performed sequentially as they are not independent (use common channels)
+    -- PROB: THis will fail on first test failure
+  mapM_
+    perform
+    [ mixTest0
+    , patTest
+    , mixTest1
+    , byTypeTest
     ]
 
+perform :: IO [Async (Maybe Error)] -> IO ()
+perform tests = do
+      -- tasks :: [Async (Maybe Error)] <- concat <$> sequence tests
+      tasks :: [Async (Maybe Error)] <- tests 
+      (durationTime,errs) <- duration ((\(ls,rs) -> catMaybes $ map (Just . show) ls ++ rs) . partitionEithers <$> mapM waitCatch tasks)
 
--- mainTest0 = do
---   [wild,char,n,n2,str0,str,str1,str2,true,list,listWild,listWildS] <- pats
+      putStrLn $ unwords ["Total duration:",showDuration durationTime]
+      if null errs
+        then putStrLn $ "No Test Errors"
+        else do
+        mapM_ putStrLn errs
+        exitFailure
 
---   let pxBool = (Proxy :: Proxy Bool)
---   let pxBools = (Proxy :: Proxy (Bool,Bool,Bool))
---   let pxWords = (Proxy :: Proxy (Bool,Integer,Integer,Bool))
---   let pxBoolList = (Proxy :: Proxy ([Bool]))
---   pfalse <- patternQ [p|False|]
---   ptrue <- patternQ [p|True|]
---   pbools <- patternQ [p|(True,False,True)|]
---   pwords <- patternQ [p|(False,11,22,True)|]
---   pstr <- patternQ [p|'a':_|]
---   -- pat <- patternQ [p|Cons False (Cons _ Nil)|]
---   --print $ pattern2Match at pat
+    --tpat :: forall t. Model t => (Pat PRef) -> 
 
---   --testInstructions
+ttyp
+  :: (Flat a, Model a, Show a, Foldable t) => t a -> Int -> ConnTst
+ttyp = mix ByType
 
---   -- tst pxBoolList wild (B.unpack $ ser $ Cons False (Cons True (Cons False Nil))) True >> tst pxBoolList wild [0] False >> tst pxBoolList wild [0,1] False
+tpat
+  :: (Flat a, Model a, Show a, Foldable t) =>
+     Data.Pattern.Pat PRef -> t a -> Int -> ConnTst
+tpat pat = mix (byPattern pat)
 
---   print ""
---   -- mapM (\t -> t True) [
---   --   tst (Proxy :: Proxy Char) char 'c'
---   --   ,tst (Proxy :: Proxy String) str ("abcdefghilmnopqrstuvz"::String)
---   --   ,tst (Proxy :: Proxy [Bool]) listWild (Cons False (Cons True Nil))
---   --   ,tst (Proxy :: Proxy [Bool]) wild longList
---   --   ,tst (Proxy :: Proxy Char) wild 'c'
---   --   ,tst (Proxy :: Proxy Word8) n (11::Integer)
---   --   ,tst (Proxy :: Proxy Word8) n (11::Int8)
---   --   ,tst (Proxy :: Proxy Word16) wild (11::Word16)
---   --   ,tst (Proxy :: Proxy String) str2 ("abcdefghilmnopqrstuvz"::String)
---   --   ]
---   tst (Proxy :: Proxy [Bool]) wild (Cons False (Cons True Nil)) True
---   -- tst (Proxy :: Proxy String) pstr ("abcdefghilmnopqrstuvz"::String) True
---   -- tst (Proxy :: Proxy String) str1 ("abcdefz"::String) True
---   -- tst (Proxy :: Proxy String) str2 ("abcdefghilmnopqrstuvz"::String) True
---   --tst (Proxy :: Proxy String) str1 ("ab"::String) True
---   --tst (Proxy :: Proxy Char) wild (ser 'c') True
---   -- tst (Proxy :: Proxy String) str (ser ("abcdefghilmnopqrstuvz"::String)) True
---   -- tst (Proxy :: Proxy String) str2 (ser ("abcdefghilmnopqrstuvz"::String)) True  
---   -- tst pxBool pfalse [1] True >> tst pxBool pfalse [128+1] False >> tst pxBool ptrue [1] False >> tst pxBool ptrue [128+1] True
---   -- print (map X.fix8 [127,128,129])
---   -- tst pxBools pbools [128+1] False >> tst pxBools pbools [128+32+1] True
---   -- print $ B.unpack $ ser (44::Word16,22::Word16,33::Word16)
---   -- print $ B.unpack $ ser (44::Integer,22::Integer,33::Integer)
+tany = mix byAny
 
---   -- tst pxWords pwords (B.unpack $ ser (False,11::Integer,22::Integer,True)) True
---   -- tst pxWords pwords (B.unpack $ ser (False,11::Integer)) False
---   -- tst pxWords pwords (B.unpack $ ser (False,11::Integer,22::Integer,False)) False
+--byTypeSimpleTest :: IO [Async ()]
+-- byTypeSimpleTest = (:[]) <$> (run (ByType::ByType Char) (\conn -> mapM_ (output conn) ['a'..'c'] >> threadDelay (seconds 10)))
 
---     where tst proxy pat a exp = do
---             let vs = ser a
---             let at = absTypeModel proxy
---             let pp@(tt,mm) = patternMatcher at pat
---             print mm
---             mapM_ (\(n,c) -> print n >> print c >> putStrLn "") (M.toList tt)
---             print $ (B.unpack vs,B.length vs)
---             --let [MatchBits bs] = mm in print (length bs,bs)
+mix ::
+  (Flat (router a), Flat a, Model (router a), Show (router a),
+   Show a, Foldable t) =>
+  router a -> t a -> Int -> ConnTst
 
---             --print $ matcherCode pp
---             let r = matchPM pp vs
---             -- print r
---             print $ r == exp
+mix protocol msgsToSend  = mixt protocol msgsToSend . ExactNumber
 
-pk = B.pack
+mixt protocol msgsToSend expectAnswers = ConnTst (run protocol) act
+  where
+    act _ conn = do
+      dbgS "sending msgs"
+      mapM_ (output conn) msgsToSend
+      checkInputs expectAnswers conn
 
-mainTest = do
-  -- let m = matchByte 11
-  -- m1 <- matchG m (B.pack [44,55,88])
-  -- print m1
-  -- m2 <- matchG m (B.pack [11,55,88])
-  -- print m2
+-- |Execute a set of either ByType or ByPattern tests
+-- byMixedTest
+--   :: (Show a, Model a, Flat a) =>
+--      Bool    -- ^True for precise matching of number of returned replies
+--      -> Int  -- ^How many times to send group of test messages
+--      -> [(Maybe (Q Language.Haskell.TH.Pat), Int)] -- ^Test clients: for each, an optional pattern and the number of replies expected
+--      -> [a]                     -- ^Messages to send (all sent by first test client)
+--      -> IO [Async Bool]
+-- byMixedTest precise multiplier tests msgs = do
+--   clients <- mapM
+--             (\(mp, num) -> let n = num * multiplier
+--                            in case mp of
+--                              Nothing -> return (run ByType, perClient n)
+--                              Just p  -> (\pat -> (run $ byPattern pat, perClient n)) <$> patternQ p)
+--             tests
+--   testClients clients
 
-  -- let proxy = Proxy :: Proxy Bool
-  -- pat <- patternQ [p|False|]
-  -- -- let vs = [[],[129],[1],[0],[1,1],[0,b0,0]]
-  -- -- let proxy = Proxy :: Proxy [Bool]
-  -- -- pat <- patternQ [p|Cons False (Cons _ Nil)|]
-  -- let vs = [[128+32+1]]
-  -- let at = absTypeModel proxy
-  -- --print $ pattern2Match at pat
-  -- --print $ patternMatcher at pat
+--   where
+--     perClient numAnswers clientID conn = do
+--       when (clientID == 0) $ mapM_ (output conn) (concat $ replicate multiplier msgs)
+--       checkNumInputs precise numAnswers conn
 
-  -- let pp = patternMatcher at pat
-  -- -- print $ X.patternMatcher_ pp
 
-  -- let mm = matchPM pp
-  -- let mr = map (mm . B.pack) vs
-  -- print "match results"
-  -- print mr
+-- byPatternTest ::  (Model a,Flat a,Show a,Foldable t,Show (t a)) => [(PatQ, Int)] -> t a -> IO [Async Bool]
+-- byPatternTest hpats msgs = do
+--    pats <- mapM (\(p,i) -> (,i) <$> patternQ p) hpats
+--    testClients $ map act pats
+--   where
+--     act (pat,numAnswers) = (run $ byPattern pat,perClient)
+--       where
+--         perClient n conn = do
+--           when (n==0) $ mapM_ (output conn) msgs
+--           chkNumInputs numAnswers conn
 
-  -- p1 <- patternQ [p|_|]
-  -- p2 <- patternQ [p|'c'|]
-  -- p3 <- patternQ [p|11|]
-  -- p4 <- patternQ [p|111111|]
-  -- p5 <- patternQ [p|"abcdefghilmnopqrstuvz"|]
-  -- p6 <- patternQ [p|True|]
-  -- p7 <- patternQ [p|Cons False (Cons True Nil)|]
-  -- p8 <- patternQ [p|Cons _ (Cons _ Nil)|]
-  ps <- pats
-  T.defaultMain (tests (matchPM,ps))-- [p1,p2,p3,p4,p5,p6,p7,p8]))
+-- -- Each actor sends the same messages and should receive all those sent minus those sent by itself.
+-- byTypeTest :: (Model a,Flat a,Show a) => [a] -> Int -> IO [Async Bool]
+-- byTypeTest msgs numDevices = do
+--   let numInMsgs = (numDevices-1)*length msgs
+--   testClients . map (run ByType,) . map (act numInMsgs) $ [1..numDevices]
+--   where act numInMsgs _ _ conn = do
+--           mapM_ (output conn) msgs
+--           chkNumInputs numInMsgs conn
 
--- tests :: TestTree
-tests pats = testGroup "Tests" [--properties
-                               patternTests pats
-                               --,matchTests
-                               ]
+-- chkNumInputs = checkNumInputs True
 
-properties = testGroup "Router Properties" [ ]
+data ExpectedAnswers = ExactNumber {expectedAnswers::Int}
+                     | AtLeast {expectedAnswers::Int}
 
-patternTests (match,[wild,char,n,n2,str0,str,str1,str2,true,list,listWild,listWildS]) = testGroup "Pattern Tests" [
 
-  testPatQ wild (PName PWild)
-  ,testPatQ char (PName $ PChar 'c')
-  ,testPatQ n (PName (PInt 11))
-  ,testPatQ n2 (PName (PInt 111111))
-  ,testPatQ str0 (PName (PString "abc"))
-  ,testPatQ str1 (PCon "Cons" [PName (PChar 'a'),PName PWild])
-  ,testPatQ true (PCon "True" [])
-  ,testPatQ list (PCon "Cons" [PCon "False" [],PCon "Cons" [PCon "True" [],PCon "Nil" []]])
-  ,testPatQ listWild (PCon "Cons" [PName PWild,PCon "Cons" [PName PWild,PCon "Nil" []]])
-  ,testPatQ listWildS (PCon "Cons" [PName PWild,PCon "Cons" [PCon "True" [],PCon "Nil" []]])
+checkInputs expectAnswers conn = do
+  ans <- replicateM (expectedAnswers expectAnswers) (inputTimeout 10 conn)
+  let numAnswers = length $ filter isJust ans
+  --let allIn = all isJust ans
+  -- WHY OH WHY? if inputWithTimeout returns a timeout, a ConnectionClosed exception is thrown after this returns
+  -- after <- inputWithTimeout 3 conn
+  -- So we do this way instead, we let the input continue undisturbed and we do not get an exception:
+  nothingAfter <- isNothing <$> inputTimeout 5 conn
+  --after <- if precise then inputTimeout 5 conn else return Nothing
 
-  ,testByPat (Proxy :: Proxy Char) wild $ Right [MatchAny (TypeCon (AbsRef (SHAKE128_48 6 109 181 42 241 69)))] -- Left ""-- (Right [MatchAny (TypeCon (AbsRef (SHA3_256_6 7 117 93 14 24 29)))])
-  ,testByPat (Proxy :: Proxy ([Bool])) list (Right [MatchValue [V1,V0,V1,V1,V0]])
-  ,testByPat (Proxy :: Proxy ([Bool])) listWild $ Right [MatchValue [V1],MatchAny (TypeCon (AbsRef (SHAKE128_48 48 111 25 129 180 28))),MatchValue [V1],MatchAny (TypeCon (AbsRef (SHAKE128_48 48 111 25 129 180 28))),MatchValue [V0]]
-  -- ,testByPat (Proxy :: Proxy ([Bool])) listWild (Right [
-  --                                                MatchValue [True]
-  --                                               ,MatchAny (TypeCon (AbsRef (SHA3_256_6 129 212 40 48 111 29)))
-  --                                               ,MatchValue [True]
-  --                                               ,MatchAny (TypeCon (AbsRef (SHA3_256_6 129 212 40 48 111 29)))
-  --                                               ,MatchValue [False]])
-  ,testByPat (Proxy :: Proxy Char) true $ Left "Constructor 'True' not present in TypeCon (AbsRef (SHAKE128_48 6 109 181 42 241 69))\n" -- Left "Constructor 'True' not present in TypeCon (AbsRef (SHA3_256_6 7 117 93 14 24 29))\n"
-  ,testByPat (Proxy :: Proxy Char) n $ Left "Type mismatch: expected TypeCon (AbsRef (SHAKE128_48 6 109 181 42 241 69)) type, found 11\n"-- (Left "Type mismatch: expected TypeCon (AbsRef (SHA3_256_6 7 117 93 14 24 29)) type, found 11\n")
+  --when (numFailed >0) $ print (unints ["Failed",show numFailed,"out of",show numAnswers] )
+  --when (numFailed >0) $ print (unwords ["Failed",show numFailed,"message reads out of",show numAnswers,show ans] )
+  --when (isJust after) $ print (unwords ["Failed after",show after] )
+  return $ case expectAnswers of
+             ExactNumber numExpectedAnswers -> if numAnswers == numExpectedAnswers && nothingAfter
+                                               then Nothing
+                                               else Just $ unwords ["Expected"
+                                                                   ,show numExpectedAnswers
+                                                                   ,"but got"
+                                                                   ,if numAnswers < numExpectedAnswers
+                                                                    then show numAnswers
+                                                                    else "more than " ++ show numExpectedAnswers]
 
-  ,testPatBin (Proxy :: Proxy Bool) true (B.pack [129]) True
-  ,testPatBin (Proxy :: Proxy Bool) true (B.pack [1]) False
-  ,testPatBin (Proxy :: Proxy Bool) true (B.pack [128]) False
-  ,testPatBin (Proxy :: Proxy Bool) true (B.pack [129,1]) False
-  ,testPatBin (Proxy :: Proxy Bool) true (B.pack [129,1,1]) False
+             AtLeast numExpectedAnswers -> if numAnswers == numExpectedAnswers
+                                               then Nothing
+                                               else Just $ unwords ["Expected at least"
+                                                                   ,show numExpectedAnswers
+                                                                   ,"but got"
+                                                                   ,show numAnswers
+                                                                   ]
 
-  ,testPat list (Cons False (Cons True Nil)) True
-  ,testPat listWild (Cons False (Cons True Nil)) True
-  ,testPat listWild (Cons True (Cons False Nil)) True
-  ,testPat listWild (Cons False Nil) False
-  ,testPat listWildS (Cons False (Cons True Nil)) True
-  ,testPat wild longList True
-  ,testPat char 'a' False
-  ,testPat char 'c' True
-  ,testPat wild 'c' True
-  ,testPat str ("abcdefghilmnopqrstuvz"::String) True
-  ,testPat str1 ("abcdefz"::String) True
-  ,testPat str2 ("abcdefghilmnopqrstuvz"::String) True
-  ,testPat str2 ("abcdZfghilmnopqrstuvz"::String) False
-  ,testPat n (11::Word) True
-  ,testPat n (11::Word32) True
-  ,testPat n (11::Int) True
-  ,testPat n (11::Int32) True
-  ,testPat n (11::Integer) True
-  ,testPat n (10::Int) False
-  ,testPat n2 (111111::Integer) True
-  ]
 
--- Test TH parsing
-testPatQ hpat pat = testCase (unwords ["Pattern",show pat]) $ hpat @?= pat
+checkNumInputs
+  precise  -- If True check that the exact number of messages has been received, otherwise that at least the number of messages has been received
+  numAnswers
+  --expectedMessages
+  conn = do
+  ans <- replicateM numAnswers (inputTimeout 10 conn)
+  let allIn = all isJust ans
+  -- WHY OH WHY? if inputWithTimeout returns a timeout, a ConnectionClosed exception is thrown after this returns
+  -- after <- inputWithTimeout 3 conn
+  -- So we do this way instead, we let the input continue undisturbed and we do not get an exception:
+  after <- if precise then inputTimeout 5 conn else return Nothing
+  let numFailed = length $ filter isNothing ans
+  --when (numFailed >0) $ print (unints ["Failed",show numFailed,"out of",show numAnswers] )
+  when (numFailed >0) $ print (unwords ["Failed",show numFailed,"message reads out of",show numAnswers,show ans] )
+  when (isJust after) $ print (unwords ["Failed after",show after] )
+  return $ allIn && isNothing after
 
--- Test conversion of TH patterns to ByPattern-expected format
-testByPat :: forall a. (Model a) => Proxy a -> Pat PRef -> Either String Pattern -> TestTree
-testByPat _ hpat epat = testCase (unwords["testByPat",show hpat]) $ ((\(ByPattern pat) -> pat) <$> (byPattern_ hpat :: Either String (ByPattern a))) @?= epat
+inputTimeout :: Show a => Int -> Connection a -> IO (Maybe a)
+inputTimeout secs conn = do
+    t1 <- async $ input conn
+    t2 <- async $ threadDelay (seconds secs)
+    -- cannot cancel or we get a ConnectionClosed error so we have to leave threads running
+    --after <- either (either (const Nothing) Just) (const Nothing) <$> waitEitherCatchCancel t1 t2
+    after <- either (either (const Nothing) Just) (const Nothing) <$> waitEitherCatch t1 t2
+    dbg ["inputTimeout",show after]
+    return after
 
--- Test full pattern matching pipeline: haskell (TH) pattern matching values
-testPat :: forall a. (Model a, Flat a, Show a) => Pat PRef -> a -> Bool -> TestTree
-testPat hpat val exp =
-        let
-          ByPattern pat = byPattern hpat :: ByPattern a
-          checker = chk (Proxy :: Proxy a)  pat
-          bs = ser val
-        in testCase (unwords ["testPat",show val]) $ checker bs @?= exp
+-- |A connection test
+data ConnTst =
+  forall msgType. ConnTst
+  { -- |Connection phase
+    tstStart :: App msgType (Maybe Error) -> IO (Async (Maybe Error))
+    -- |Test phase
+  , tstBody :: Int                 -- ^Client identifier
+            -> Connection msgType  -- ^Connection to test
+            -> IO (Maybe Error)    -- ^Test Result
+  }
 
-testPatBin :: forall a. (Model a) => Proxy a -> Pat PRef  -> B.ByteString -> Bool -> TestTree
-testPatBin proxy hpat bs exp =
-        let
-          ByPattern pat = byPattern hpat :: ByPattern a
-          checker = chk proxy pat
-        in testCase (unwords ["testPatBin",show pat,show $ B.unpack bs]) $ checker bs @?= exp
+type Error = String
 
--- Benchmark full pattern matching pipeline: haskell (TH) pattern matching values
-benchPat :: forall a. (Model a, Flat a, Show a) => Proxy a -> Pat PRef -> a -> Benchmark
-benchPat proxy hpat val =
-        let
-          ByPattern pat = byPattern hpat :: ByPattern a
-          checker = chk proxy pat
-          bs = ser val
-        in bench (unwords["benchPat",show pat,"vs",take 60 $ show val]) $ nf checker bs
+--testClients = connTests . map (uncurry ConnTst)
 
-chk proxy pat = match (matcher (patternMatcher (absTypeModel proxy) pat))
+-- |Start all tests, when all have completed the start up/connection phase run them in parallel
+-- Return results
+-- We need to make sure all test clients are connected or we will miss some messages.
+-- Problem: if one client does not get a valid connection we will wait for ever.
+connTests :: String -> [ConnTst] -> IO [Async (Maybe String)]
+connTests testName cls = do
+  numStarted <- newTVarIO 0
+  zipWithM (\clientID tst -> (((\r -> unwords [testName,"Test Number",show $ clientID+1,r]) <$>) <$>) <$> client numStarted clientID tst) [0..] cls
+    where
+      client count clientID (ConnTst start act) = start $ \conn -> do
+          dbgS $ unwords ["Started",testName,show clientID]
+          atomically $ modifyTVar' count (+1)
+          waitAllStarted (secs 10)
+          r <- act clientID conn
+          dbgS $ unwords ["Completed",testName,show clientID,"Result",show r]
+          -- threadDelay (secs 10)
+          return r
+            where
+            waitAllStarted maxDelay | maxDelay <=0 = error "waited too long for all processes to start"
+                                    | otherwise = do
+                                        c <- atomically $ readTVar count
+                                        if (c < length cls)
+                                          then do
+                                          let delay = 10000
+                                          threadDelay delay
+                                          waitAllStarted (maxDelay-delay)
+                                          else do
+                                          -- Are these actually all started?
+                                          -- Apparently not, so wait a bit longer
+                                          threadDelay (secs 3)
+                                          dbgS "All Started"
 
-ser = flat
+-- waitCatchExceptClose task = exp <$> waitCatch task
+--   where
+--     exp (Left e) | fromException e == Just WS.ConnectionClosed = Right True
+--     exp e = e
 
-instance Exception String
+run router app = async $ do
+   let cfg = def
+   -- let cfg = def{ip="127.0.0.1"}--,path="/lll"}
+   er <- try $ runApp cfg router app
+   -- info ["RUN RESULT",show router,show er]
+   return $ case er of
+     Right mr -> mr
+     Left (er::SomeException) -> Just (show er)
 
+-- |Wait for and return the indicated number of messages
+recMsgs :: WS.Connection -> Int -> IO [BL.ByteString]
+recMsgs conn n = mapM (\n -> WS.receiveData conn >>= \msg -> dbg ["RCV",show n,show msg] >> return msg) [1 .. n]
+
+printAllMessages =
+  runApp def byAny $ \conn -> forever $ do
+  print "WAIT"
+  r <- input conn
+  print r
+
+-- Record rest data types
+saveTypes = do
+    recordType def (Proxy::Proxy III)
+    recordType def (Proxy::Proxy Msg)
+    recordType def (Proxy::Proxy [Bool])
+
+data III = III {w8::Int8,w16::Int16,w::Int,i8::Int8,i::Int,f::Float,d::Double,ii::Integer}
+  deriving (Eq, Ord, Read, Show, Generic,Flat, Model)
+
+-- Data model for a simple chat system
+data Msg = Msg {fromUser::User
+               ,subject::Subject
+               ,content::Content}
+         deriving (Eq, Ord, Read, Show, Generic,Flat, Model)
+
+type User = String
+
+-- Hierarchical subject
+-- Example: Subject ["Haskell","Meeting","Firenze"]
+data Subject = Subject [String] deriving (Eq, Ord, Read, Show, Generic, Flat, Model)
+
+-- Different kinds of contents
+data Content =
+              -- Basic text message
+              TextMsg String
+              | Join
+ deriving (Eq, Ord, Read, Show, Generic, Flat, Model)
+
+data Unknown = Unknown
+         deriving (Eq, Ord, Read, Show, Generic,Flat, Model)
+
+
+-- Utilities
+secs = (* 1000000)
+
+deriving instance Eq WS.ConnectionException

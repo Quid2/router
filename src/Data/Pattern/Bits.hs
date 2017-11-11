@@ -16,9 +16,9 @@ import ZM.Type.Bit
 
 -- |Low level pattern, for efficient matching
 data BitMask =
-  Bits8 -- ^Match the indicated number of most significant bits with indicated value
-  Int   -- ^numBits
-  Word8 -- ^value has its least significant numBits set to expected value, other bits are set to 0
+  Bits8 -- ^ Match the indicated number of most significant bits with indicated value
+  Int   -- ^ numBits
+  Word8 -- ^ value has its least significant numBits set to expected value, other bits are set to 0
 
   | Bits16 Int Word16
   | Bits32 Int Word32

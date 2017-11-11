@@ -20,55 +20,47 @@ library
                      , bytestring
                      , containers
                      , data-default
-                     , deepseq >= 1.4.1.1
-                     , flat>=0.3
-                     , ghc
-                     , ghc-paths
+                     --, deepseq >= 1.4.1.1
+                     , flat==0.3.*
+                     -- , ghc
+                     --, ghc-paths
                      , hashable
                      , list-t
-                     , model>=0.3
+                     , model>=0.4.2 && < 0.5
                      , pandoc
                      , pandoc-types
-                     , top
+                     , top >= 0.2.2 && < 0.3
                      , stm
                      , stm-containers>=0.2.4
-                     , strict
+                     --, strict
                      , time
-                     , timeit
+                     --, timeit
                      , transformers >= 0.4
-                     , zm>=0.2
+                     , zm==0.3.*
                      , unix
                      , websockets
-                     , ListLike,top-apps
-                     --, memory
+                     , top-apps
   if (arch(x86_64))
     build-depends:  x86-64bit>=0.4.4
 
   default-language:    Haskell2010
 
-executable quid2.net
+executable top-net
   hs-source-dirs:      app
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , bytestring
-                     , directory >= 1.2.2.0
-                     , file-embed
-                     , filepath >= 1.4.0.0
                      , hslogger
                      , text
                      , containers
                      , wai
-                     , wai-app-static
-                     , wai-extra
                      , wai-websockets
                      , warp
                      , websockets
-                     --, xformat
                      , scotty>=0.7.2
-                     , stm,transformers
+                     , transformers
                      , zm, top,router,top-apps
-                     -- , x86-64bit
 
   default-language:    Haskell2010
 
@@ -86,10 +78,18 @@ executable quid2.net
 
 --   default-language:    Haskell2010
 
-test-suite router-test-pattern
+test-suite router-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
+  build-depends:       base,zm,hslogger,bytestring,websockets,async >= 2.1.0,stm,top,template-haskell,extra
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
+
+test-suite router-test-pattern
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             PatternSpec.hs
   other-modules: Test.Data,Test.Data.Flat,Test.Data.Model,Test.Data2,Test.Data2.Flat,Test.Data3,Test.Data3.Flat
   build-depends:       base,containers,bytestring,text,tasty,tasty-hunit,tasty-quickcheck
                        , flat, model, zm ,top, router,template-haskell,criterion

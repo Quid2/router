@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveFoldable    #-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE TupleSections     #-}
 module Data.Pattern.Matcher (
     MapTypeMatcher,
@@ -10,11 +11,11 @@ module Data.Pattern.Matcher (
     Match(..),
     patternMatcher,
     ) where
-import qualified Data.ListLike.String as L
+
 import qualified Data.Map             as M
 import           Data.Maybe
 import           Data.Pattern
-import           ZM           hiding (Name, Var)
+import           ZM                   hiding (Name, Var)
 
 --type PatternMatcher = (TypeMatchers,[Match AbsRef [BitMask]])
 
@@ -46,7 +47,7 @@ typeMatcherMap tm =
       typeTree_ f c e t = conTree_ f c t [] (solve t e)
 
       conTree_ f c t bs (ConTree l r) = f (conTree_ f c t (0:bs) l) (conTree_ f c t (1:bs) r)
-      conTree_ f c t bs (Con cn cs) = c t (L.toString cn) (reverse bs) (fieldsTypes cs)
+      conTree_ f c t bs (Con cn cs) = c t (convert cn :: String) (reverse bs) (fieldsTypes cs)
       -- conTree_ f c e t bs (Con cn cs) = c t (L.toString cn) (reverse bs) (map (typeTree_ f c e) (fieldsTypes cs))
 
 -- |Simplify BTree substituting, whenever possible, an explicit traverse of the constructor tree
