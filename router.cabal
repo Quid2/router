@@ -2,20 +2,25 @@ name:                router
 version:             0.1.1
 synopsis:            Flexible, typed router.
 description:         Please see README.md
-homepage:            http://github.com/tittoassini/router#readme
+homepage:            http://github.com/Quid2/router#readme
 license:             BSD3
 license-file:        LICENSE
 author:              Pasqualino `Titto` Assini
 maintainer:          tittoassini@gmail.com
-copyright:           Copyright: (c) 2015 Pasqualino `Titto` Assini
+copyright:           Copyright: (c) 2019 Pasqualino `Titto` Assini
 category:            Data
 build-type:          Simple
--- extra-source-files:
-cabal-version:       >=1.10
+cabal-version:       >=2
+
+Flag fast {
+  Description: Enable assembler version of router's pattern matcher
+  Default:     False
+}
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Network.Bus,Network.Router.ByAny,Network.Router.ByType,Network.Router.ByPattern,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Data.Pattern.Bits,Data.Pattern.Haskell,Data.Pattern.X64,Data.Pattern.Matcher
+  exposed-modules:     Network.Bus,Network.Router.ByAny,Network.Router.ByType,Network.Router.ByPattern,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Data.Pattern.Bits,Data.Pattern.Haskell,Data.Pattern.Matcher,Model.Report
+  -- exposed-modules: Data.Time.Util
   build-depends:       base >= 4.7 && < 5
                      , bytestring
                      , containers
@@ -26,26 +31,36 @@ library
                      --, ghc-paths
                      , hashable
                      , list-t
-                     , model>=0.4.2 && < 0.5
+                     , model == 0.5.* 
+                     -- >=0.4.2 && < 0.5
                      , pandoc
                      , pandoc-types
                      , top >= 0.2.2 && < 0.3
                      , stm
-                     , stm-containers>=0.2.4
+                     , stm-containers >=1
                      --, strict
                      , time
                      --, timeit
                      , transformers >= 0.4
-                     , zm==0.3.*
+                     , zm>=0.3.1 && < 0.4
                      , unix
                      , websockets
+                     , text
+                     -- , wuss
                      , top-apps
-  if (arch(x86_64))
-    build-depends:  x86-64bit>=0.4.4
+  if (arch(x86_64) && flag(fast))
+    other-modules: Data.Pattern.X64
+    build-depends:  x86-64bit>=0.4.5
 
   default-language:    Haskell2010
 
-executable top-net
+-- library internal
+--     hs-source-dirs:      src
+--     exposed-modules: Data.Time.Util
+--     build-depends: base,time,zm
+--     default-language:    Haskell2010
+
+executable top-router
   hs-source-dirs:      app
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
@@ -60,25 +75,15 @@ executable top-net
                      , websockets
                      , scotty>=0.7.2
                      , transformers
-                     , zm, top,router,top-apps
+                     , zm, top
+                     , router
+                     --,internal
+                     , directory,unix,filepath,hdaemonize,top-apps
+  --other-modules: Quid2.Util.Dir,Quid2.Util.Service
 
   default-language:    Haskell2010
 
--- executable quid2-ghc
---   hs-source-dirs:      src
---   main-is:             Data/Zm/GHC.hs
---   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
---   -- other-modules:       Repo.DB,Repo.Types
---   build-depends:       base
---                      , bytestring
---                      , hslogger
---                      , text
---                      , containers,acid-state,safecopy,filepath,mtl
---                      , zm, top,router,flat,transformers,websockets,ghc,ghc-paths,timeit,plugins
-
---   default-language:    Haskell2010
-
-test-suite router-test
+test-suite spec
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
@@ -86,17 +91,18 @@ test-suite router-test
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 
-test-suite router-test-pattern
+test-suite pattern
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             PatternSpec.hs
-  other-modules: Test.Data,Test.Data.Flat,Test.Data.Model,Test.Data2,Test.Data2.Flat,Test.Data3,Test.Data3.Flat
+  other-modules: Test.Data,Test.Data.Flat,Test.Data.Model,Test.Data2,Test.Data2.Flat,Test.Data3
+  -- ,Test.Data3.Flat
   build-depends:       base,containers,bytestring,text,tasty,tasty-hunit,tasty-quickcheck
                        , flat, model, zm ,top, router,template-haskell,criterion
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 
-test-suite router-doctest
+test-suite doctest
   default-language:   Haskell2010
   type:               exitcode-stdio-1.0
   ghc-options:        -threaded
@@ -106,7 +112,7 @@ test-suite router-doctest
 
 source-repository head
   type:     git
-  location: https://github.com/tittoassini/router
+  location: https://github.com/Quid2/router
 
 
 

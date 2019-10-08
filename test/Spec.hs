@@ -185,7 +185,7 @@ mix ::
 
 mix protocol msgsToSend  = mixt protocol msgsToSend . ExactNumber
 
-mixt protocol msgsToSend expectAnswers = ConnTst (run protocol) act
+mixt protocol msgsToSend expectAnswers = ConnTst (runIt protocol) act
   where
     act _ conn = do
       dbgS "sending msgs"
@@ -352,7 +352,7 @@ connTests testName cls = do
 --     exp (Left e) | fromException e == Just WS.ConnectionClosed = Right True
 --     exp e = e
 
-run router app = async $ do
+runIt router app = async $ do
    let cfg = def
    -- let cfg = def{ip="127.0.0.1"}--,path="/lll"}
    er <- try $ runApp cfg router app
@@ -371,11 +371,13 @@ printAllMessages =
   r <- input conn
   print r
 
--- Record rest data types
+------- Test Channel Data Types
+
+-- Record rest data types (Unknown is not recorded)
 saveTypes = do
-    recordType def (Proxy::Proxy III)
-    recordType def (Proxy::Proxy Msg)
-    recordType def (Proxy::Proxy [Bool])
+    run $ recordType (Proxy::Proxy III)
+    run $ recordType (Proxy::Proxy Msg)
+    run $ recordType (Proxy::Proxy [Bool])
 
 data III = III {w8::Int8,w16::Int16,w::Int,i8::Int8,i::Int,f::Float,d::Double,ii::Integer}
   deriving (Eq, Ord, Read, Show, Generic,Flat, Model)
@@ -406,4 +408,4 @@ data Unknown = Unknown
 -- Utilities
 secs = (* 1000000)
 
-deriving instance Eq WS.ConnectionException
+-- deriving instance Eq WS.ConnectionException

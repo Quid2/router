@@ -1,41 +1,58 @@
-{-# LANGUAGE OverloadedStrings ,StandaloneDeriving  #-}
-module Pandoc.Report(Report(..),report,newServiceReport,asText,asHTML,p,bulletList) where
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
+module Pandoc.Report
+  ( Report(..)
+  , report
+  , newServiceReport
+  , asText
+  , asHTML
+  , p
+  , bulletList
+  ) where
 
 -- import           Control.Applicative
 import           Data.Default
+import           Data.Text                    as T
+import           Data.Time.Util
+import           System.Posix.Process         (ProcessTimes (..), getProcessID,
+                                               getProcessTimes)
 import           Text.Pandoc.Builder
+import           Text.Pandoc.Class            (runIOorExplode)
 import           Text.Pandoc.Writers.HTML
 import           Text.Pandoc.Writers.Markdown
-import Data.Time.Util
-import System.Posix.Process(getProcessID,getProcessTimes,ProcessTimes(..))
+
 -- import System.Linux.Proc(getProcessStatus)
-
-
-data Report = Report {reportTitle::Inlines
-                     ,reporters::[(String,Reporter)]
-                     ,subreports::[Report]}
+data Report = Report
+  { reportTitle :: Inlines
+  , reporters   :: [(String, Reporter)]
+  , subreports  :: [Report]
+  }
 
 type Reporter = IO Blocks
 
 report :: String -> [(String, Reporter)] -> Report
 report title rs = Report (str title) rs []
 
-newServiceReport
-  :: String
-     -> String
-     -> UTCTime
-     -> [Report] --  [(String,Reporter)]
-     -> IO Report
-newServiceReport serviceName version startTime rs =  do
-    let title = "Service " <> str serviceName
-    let t = formatT stdTimeF startTime
-    --return $ Report (setTitle title . doc) $ [
-    return $ Report title [
-       ("Version",return . p $ version)
-      ,("Started up at",return . p $  t)
-      ,("Report generated at",p <$> timeDateTime)
-      ,("Process Times",p. show <$> getProcessTimes)
-      ] rs
+newServiceReport ::
+     String
+  -> String
+  -> UTCTime
+  -> [Report] --  [(String,Reporter)]
+  -> IO Report
+newServiceReport serviceName version startTime rs = do
+  let title = "Service " <> str serviceName
+  let t = formatT stdTimeF startTime
+  --return $ Report (setTitle title . doc) $ [
+  return $
+    Report
+      title
+      [ ("Version", return . p $ version)
+      , ("Started up at", return . p $ t)
+      , ("Report generated at", p <$> timeDateTime)
+      , ("Process Times", p . show <$> getProcessTimes)
+      ]
+      rs
 
 p = plain . str
 
@@ -44,22 +61,20 @@ asPandoc r = doc <$> asBlocks r
 
 asBlocks :: Report -> IO Blocks
 asBlocks r = do
-  bs <- bulletList <$> (mapM (\(n,c) -> ( (p $ n <> " ") <>) <$> c) $ reporters r)
-  rs <- bulletList <$> (mapM asBlocks $ subreports r) 
+  bs <-
+    bulletList <$> (mapM (\(n, c) -> ((p $ n <> " ") <>) <$> c) $ reporters r)
+  rs <- bulletList <$> (mapM asBlocks $ subreports r)
   return $ header 2 (reportTitle r) <> bs <> rs
 
-asText :: Report -> IO String
-asText r = writePlain def <$> asPandoc r
+asText :: Report -> IO Text
+asText r = asPandoc r >>= runIOorExplode . writePlain def
 
-asHTML :: Report -> IO String
-asHTML r = writeHtmlString def <$> asPandoc r
+asHTML :: Report -> IO Text
+asHTML r = asPandoc r >>= runIOorExplode . writeHtml5String def
 
 deriving instance Show ProcessTimes
-
 -- getCurrentProcessStatus = getProcessID >>= getProcessStatus . fromInteger . toInteger
 -- getCurrentProcessInfo = getProcessID >>= procGetStatInfo . fromInteger . toInteger
-
-
 {-
     -- return . scottyHTML $
     let head = H.docTypeHtml $ do
@@ -71,7 +86,6 @@ deriving instance Show ProcessTimes
             H.p $ fromString $ unwords ["Started up at",t]
     return (head,[])
 -}
-
 {-
 asHTML (h,_) = scottyHTML $ h
 

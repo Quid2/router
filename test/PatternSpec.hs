@@ -33,8 +33,8 @@ import           System.Exit         (exitFailure)
 import           Test.Data hiding (V1)
 import           Test.Data.Flat hiding (V1)
 import           Test.Data.Model
-import qualified Test.Data2            as Data2
-import qualified Test.Data3            as Data3
+-- import qualified Test.Data2            as Data2
+-- import qualified Test.Data3            as Data3
 import           Test.Tasty
 import qualified Test.Tasty            as T
 import           Test.Tasty.HUnit
@@ -53,23 +53,6 @@ main = mainTest
 
 -- FIX
 -- pstr2 = patternQ
-
--- test patterns
-pats = mapM patternQ [[p|_|]
-                      ,[p|'c'|]
-                      ,[p|11|]
-                      ,[p|111111|]
-                      ,[p|"abc"|]
-                      ,[p|"abcdefghilmnopqrstuvz"|]
-                      ,[p|'a':_|]
-                      ,[p|'a':_:_:_:'e':'f':'g':'h':_:_:_:_:_:_:_:'r':'s':'t':'u':'v':_|]
-                      ,[p|True|]
-                      ,[p|Cons False (Cons True Nil)|]
-                      ,[p|Cons _ (Cons _ Nil)|]
-                      ,[p|_:True:[]|]
-                      ]
-
-longList = replicate 1000 False
 
 mainBench = do
   [wild,char,n,n2,str0,str,str1,str2,true,list,listWild,listWildS] <- pats
@@ -100,7 +83,6 @@ mainBench = do
     ,benchPat (Proxy :: Proxy String) str2 ("abcdefghilmnopqrstuvz"::String)
     ]
 
-pk = B.pack
 
 mainTest = do
   -- let m = matchByte 11
@@ -160,8 +142,8 @@ patternTests (match,[wild,char,n,n2,str0,str,str1,str2,true,list,listWild,listWi
   ,testPatQ listWildS (PCon "Cons" [PName PWild,PCon "Cons" [PCon "True" [],PCon "Nil" []]])
 
   ,testByPat (Proxy :: Proxy Char) wild $ Right [MatchAny (TypeCon (AbsRef (SHAKE128_48 6 109 181 42 241 69)))] -- Left ""-- (Right [MatchAny (TypeCon (AbsRef (SHA3_256_6 7 117 93 14 24 29)))])
-  ,testByPat (Proxy :: Proxy ([Bool])) list (Right [MatchValue [V1,V0,V1,V1,V0]])
-  ,testByPat (Proxy :: Proxy ([Bool])) listWild $ Right [MatchValue [V1],MatchAny (TypeCon (AbsRef (SHAKE128_48 48 111 25 129 180 28))),MatchValue [V1],MatchAny (TypeCon (AbsRef (SHAKE128_48 48 111 25 129 180 28))),MatchValue [V0]]
+  ,testByPat (Proxy :: Proxy [Bool]) list (Right [MatchValue [V1,V0,V1,V1,V0]])
+  ,testByPat (Proxy :: Proxy [Bool]) listWild $ Right [MatchValue [V1],MatchAny (TypeCon (AbsRef (SHAKE128_48 48 111 25 129 180 28))),MatchValue [V1],MatchAny (TypeCon (AbsRef (SHAKE128_48 48 111 25 129 180 28))),MatchValue [V0]]
   -- ,testByPat (Proxy :: Proxy ([Bool])) listWild (Right [
   --                                                MatchValue [True]
   --                                               ,MatchAny (TypeCon (AbsRef (SHA3_256_6 129 212 40 48 111 29)))
@@ -234,6 +216,26 @@ benchPat proxy hpat val =
 chk proxy pat = match (matcher (patternMatcher (absTypeModel proxy) pat))
 
 ser = flat
+
+-- test patterns
+pats = mapM patternQ [[p|_|]
+                      ,[p|'c'|]
+                      ,[p|11|]
+                      ,[p|111111|]
+                      ,[p|"abc"|]
+                      ,[p|"abcdefghilmnopqrstuvz"|]
+                      ,[p|'a':_|]
+                      ,[p|'a':_:_:_:'e':'f':'g':'h':_:_:_:_:_:_:_:'r':'s':'t':'u':'v':_|]
+                      ,[p|True|]
+                      ,[p|Cons False (Cons True Nil)|]
+                      ,[p|Cons _ (Cons _ Nil)|]
+                      ,[p|_:True:[]|]
+                      ]
+
+longList = replicate 1000 False
+
+pk = B.pack
+
 
 instance Exception String
 
