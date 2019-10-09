@@ -83,8 +83,8 @@ setup cfg = do
   --setupRouters (run . getAbsTypeModel repo) >>= www serverPort
   {- Embedded ADT record service
     To serve ByPattern connections the router needs to know the type definition.
-    This can either be found in the router cache or retrieved by the appropriate channel.!! 
-    
+    This can either be found in the router cache or retrieved by the appropriate channel.!!
+
   -}
   repo <- dbRepo (stateDir cfg) >>= autoRepo
   setupRouters (getAbsTypeModel repo) >>= www serverPort
@@ -116,12 +116,6 @@ www serverPort routersMap = do
       serverVersion
       startupTime
       (warpReport warpState : map routerReport routers)
-  binaryReport <-
-    warpBinaryReport
-      serverVersion
-      startupTime
-      warpState
-      (mapM routerBinaryReport routers)
       --asText serverReport >>= dbg1
   --let warpOpts = Warp.setLogger noRequestLogger . Warp.setOnClose onClose . Warp.setOnOpen onOpen . Warp.setPort 80 . Warp.setTimeout 60 $ Warp.defaultSettings
   let warpOpts =
@@ -137,6 +131,13 @@ www serverPort routersMap = do
       get "/" $ liftIO (TL.fromStrict <$> asHTML serverReport) >>= html
     -- Return Server report in binary format
       get "/report" $ do
+        binaryReport <-
+          liftIO $
+          warpBinaryReport
+            serverVersion
+            startupTime
+            warpState
+            (mapM routerBinaryReport routers)
         let r = L.fromStrict . flat $ binaryReport
         setHeader "Access-Control-Allow-Origin" "*"
         setHeader "Content-Type" "application/octet-stream"
