@@ -61,7 +61,7 @@ main = initService serviceName setup
 
 data MyConfig =
   MyConfig
-    { debugLevel :: Priority
+    { logPriority :: Priority
     -- , wwwPort    :: Int has to be 80
     }
   deriving (Show, Read)
@@ -70,7 +70,7 @@ setup :: Config MyConfig -> IO ()
 setup cfg = do
   let appCnf = appConf cfg
   let serverPort = 80 -- fromMaybe 80 (wwwPort <$> appCnf)
-  let dbgLevel = maybe WARNING debugLevel appCnf
+  let dbgLevel = maybe WARNING logPriority appCnf
   logLevelOut dbgLevel stdout
   dbgS $ show cfg
   -- t = absType (Proxy::Proxy WarpReport)
@@ -81,7 +81,11 @@ setup cfg = do
   --let adtSolver t = ((\env -> AbsoluteType (M.fromList env) t) <$>) <$> solveType repo def t
   -- CHECK: very slow? should this service be embedded with the router given that we depend on it for Pattern channel support?
   --setupRouters (run . getAbsTypeModel repo) >>= www serverPort
-  -- Embedded ADT record service 
+  {- Embedded ADT record service
+    To serve ByPattern connections the router needs to know the type definition.
+    This can either be found in the router cache or retrieved by the appropriate channel.!! 
+    
+  -}
   repo <- dbRepo (stateDir cfg) >>= autoRepo
   setupRouters (getAbsTypeModel repo) >>= www serverPort
 
@@ -92,8 +96,9 @@ setupRouters adtSolver = do
   byAnyRouter <- Network.Router.ByAny.newRouter bus
   byTypeRouter <- Network.Router.ByType.newRouter bus
   byPatternRouter <- Network.Router.ByPattern.newRouter bus adtSolver
-  let routers = [echoRouter, byAnyRouter, byTypeRouter, byPatternRouter]
-  return $ foldr (\r -> M.insert (routerKey r) r) M.empty routers
+  return $
+    foldr (\r -> M.insert (routerKey r) r) M.empty $
+    [echoRouter, byAnyRouter, byTypeRouter, byPatternRouter]
 
 www :: Int -> Routers -> IO ()
 www serverPort routersMap = do

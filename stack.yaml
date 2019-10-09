@@ -7,7 +7,7 @@ packages:
   #- ../model
   # - ../zm
   # - ../flat
-  # - ../top
+  #- ../top
 #  - ../top-apps
 #- ../EXTERNAL/x86-64
 
@@ -29,10 +29,10 @@ extra-deps:
     commit: b55e40f0d2cb8a0eb46b88cf9bfc10d87c85c91c
 
   - github: Quid2/top
-    commit: a19d0d1b025a21b880038ed469323602350f14d6
+    commit: 3d691e53307e743291a7c73ec23a7cef910af6c5
 
   - github: Quid2/top-apps
-    commit: 3caba76139369d10e1c10aed55efe86f6649bbca
+    commit: 211f8b296b51f72f476f44a8b71f5e6bc00fece2
 
   - Unique-0.4.7.6@sha256:a1ff411f4d68c756e01e8d532fbe8e57f1ac77f2cc0ee8a999770be2bca185c5,2723
   - megaparsec-6.5.0@sha256:510b5471f31e965a06f91d110456f24ad7e191e0778f4fc8ec053dcb182abcbf,6125
