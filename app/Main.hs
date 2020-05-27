@@ -26,7 +26,7 @@ import qualified Network.Router.ByPattern
 import qualified Network.Router.ByType
 import qualified Network.Router.Echo
 import           Network.Router.Types
-import           Network.Top                    hiding (Config, first)
+import           Network.Top                    hiding (Config, first,getAbsTypeModel)
 import           Network.Top.Util
 import           Repo
  {-
