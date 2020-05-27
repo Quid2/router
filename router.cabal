@@ -12,21 +12,16 @@ category:            Data
 build-type:          Simple
 cabal-version:       >=2
 
-Flag fast {
-  Description: Enable assembler version of router's pattern matcher
-  Default:     False
-}
-
 library
   hs-source-dirs:      src
-  exposed-modules:     Network.Bus,Network.Router.ByAny,Network.Router.ByType,Network.Router.ByPattern,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Data.Pattern.Bits,Data.Pattern.Haskell,Data.Pattern.Matcher,Model.Report
+  exposed-modules:     Network.Bus,Network.Router.ByAny,Network.Router.ByType,Network.Router.ByPattern,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Model.Report
   -- exposed-modules: Data.Time.Util
   build-depends:       base >= 4.7 && < 5
                      , bytestring
                      , containers
                      , data-default
                      --, deepseq >= 1.4.1.1
-                     , flat==0.3.*
+                     , flat==0.4.*
                      -- , ghc
                      --, ghc-paths
                      , hashable
@@ -48,9 +43,6 @@ library
                      , text
                      -- , wuss
                      , top-apps
-  if (arch(x86_64) && flag(fast))
-    other-modules: Data.Pattern.X64
-    build-depends:  x86-64bit>=0.4.5
 
   default-language:    Haskell2010
 
@@ -91,16 +83,6 @@ test-suite spec
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 
-test-suite pattern
-  type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
-  main-is:             PatternSpec.hs
-  other-modules: Test.Data,Test.Data.Flat,Test.Data.Model,Test.Data2,Test.Data2.Flat,Test.Data3
-  -- ,Test.Data3.Flat
-  build-depends:       base,containers,bytestring,text,tasty,tasty-hunit,tasty-quickcheck
-                       , flat, model, zm ,top, router,template-haskell,criterion
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-  default-language:    Haskell2010
 
 test-suite doctest
   default-language:   Haskell2010

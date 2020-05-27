@@ -8,7 +8,7 @@ module Network.Router.Util(
 import           Control.Exception      (Exception,SomeException, fromException, handle)
 import           Control.Monad.IO.Class
 -- import qualified Data.ByteString.Lazy   as L
-import           Data.Flat
+import           Flat
 import           Network.Top
 import           Network.Top    as X
 import qualified Network.WebSockets     as WS
