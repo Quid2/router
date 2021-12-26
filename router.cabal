@@ -10,7 +10,7 @@ maintainer:          tittoassini@gmail.com
 copyright:           Copyright: (c) 2019 Pasqualino `Titto` Assini
 category:            Data
 build-type:          Simple
-cabal-version:       >=2
+cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
