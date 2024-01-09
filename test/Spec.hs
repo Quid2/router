@@ -178,10 +178,10 @@ tany = mix byAny
 --byTypeSimpleTest :: IO [Async ()]
 -- byTypeSimpleTest = (:[]) <$> (run (ByType::ByType Char) (\conn -> mapM_ (output conn) ['a'..'c'] >> threadDelay (seconds 10)))
 
-mix ::
-  (Flat (router a), Flat a, Model (router a), Show (router a),
-   Show a, Foldable t) =>
-  router a -> t a -> Int -> ConnTst
+-- mix ::
+--   (Flat (router a), Flat a, Model (router a), Show (router a),
+--    Show a, Foldable t) =>
+--   router a -> t a -> Int -> ConnTst
 
 mix protocol msgsToSend  = mixt protocol msgsToSend . ExactNumber
 
