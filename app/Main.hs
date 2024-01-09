@@ -19,6 +19,7 @@ import qualified Data.Map.Strict                as M
 import           Data.Maybe
 import qualified Data.Text                      as T
 import qualified Data.Text.Lazy                 as TL
+import           Data.Time.Clock
 import           Data.Time.Util
 import           Data.Word
 import qualified Network.Router.ByAny
@@ -26,7 +27,8 @@ import qualified Network.Router.ByPattern
 import qualified Network.Router.ByType
 import qualified Network.Router.Echo
 import           Network.Router.Types
-import           Network.Top                    hiding (Config, first,getAbsTypeModel)
+import           Network.Top                    hiding (Config, first,
+                                                 getAbsTypeModel)
 import           Network.Top.Util
 import           Repo
  {-

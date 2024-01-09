@@ -32,7 +32,7 @@ data Report = Report
 type Reporter = IO Blocks
 
 report :: String -> [(String, Reporter)] -> Report
-report title rs = Report (str title) rs []
+report title rs = Report (strT title) rs []
 
 newServiceReport ::
      String
@@ -41,7 +41,7 @@ newServiceReport ::
   -> [Report] --  [(String,Reporter)]
   -> IO Report
 newServiceReport serviceName version startTime rs = do
-  let title = "Service " <> str serviceName
+  let title = "Service " <> strT serviceName
   let t = formatT stdTimeF startTime
   --return $ Report (setTitle title . doc) $ [
   return $
@@ -54,7 +54,9 @@ newServiceReport serviceName version startTime rs = do
       ]
       rs
 
-p = plain . str
+p = plain . strT
+
+strT = str . T.pack
 
 asPandoc :: Report -> IO Pandoc
 asPandoc r = doc <$> asBlocks r

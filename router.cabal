@@ -1,50 +1,63 @@
-name:                router
-version:             0.1.3
-synopsis:            Flexible, typed router.
-description:         Please see README.md
-homepage:            http://github.com/Quid2/router#readme
-license:             BSD3
-license-file:        LICENSE
-author:              Pasqualino `Titto` Assini
-maintainer:          tittoassini@gmail.com
-copyright:           Copyright: (c) 2019 Pasqualino `Titto` Assini
-category:            Data
-build-type:          Simple
-cabal-version:       >=1.10
+name:          router
+version:       0.1.5
+synopsis:      Flexible, typed router.
+description:   Please see README.md
+homepage:      http://github.com/Quid2/router#readme
+license:       BSD3
+license-file:  LICENSE
+author:        Pasqualino `Titto` Assini
+maintainer:    tittoassini@gmail.com
+copyright:     Copyright: (c) 2023 Pasqualino `Titto` Assini
+category:      Data
+build-type:    Simple
+cabal-version: >=1.10
 
 library
-  hs-source-dirs:      src
-  exposed-modules:     Network.Bus,Network.Router.ByAny,Network.Router.ByType,Network.Router.ByPattern,Network.Router.Echo,Network.Router.Types,Network.Router.Util,Pandoc.Report,Model.Report
-  -- exposed-modules: Data.Time.Util
-  build-depends:       base >= 4.7 && < 5
-                     , bytestring
-                     , containers
-                     , data-default
-                     --, deepseq >= 1.4.1.1
-                     , flat==0.4.*
-                     -- , ghc
-                     --, ghc-paths
-                     , hashable
-                     , list-t
-                     , model == 0.5.* 
-                     -- >=0.4.2 && < 0.5
-                     , pandoc
-                     , pandoc-types
-                     , top >= 0.2.2 && < 0.3
-                     , stm
-                     , stm-containers >=1
-                     --, strict
-                     , time
-                     --, timeit
-                     , transformers >= 0.4
-                     , zm>=0.3.1 && < 0.4
-                     , unix
-                     , websockets
-                     , text
-                     -- , wuss
-                     , top-apps
+  hs-source-dirs:   src
+  exposed-modules:
+    Model.Report
+    Network.Bus
+    Network.Router.ByAny
+    Network.Router.ByPattern
+    Network.Router.ByType
+    Network.Router.Echo
+    Network.Router.Types
+    Network.Router.Util
+    Pandoc.Report
 
-  default-language:    Haskell2010
+  -- other-modules:    Data.Time.Util
+  build-depends:
+      base            >=4.7   && <5
+    , bytestring
+    , containers
+    , data-default
+    , flat            >=0.6   && <0.7
+    , hashable
+    , list-t
+    , model           >=0.5   && <0.6
+    , pandoc
+    , pandoc-types
+    , stm
+    , stm-containers  >=1
+    , text
+    , time
+    , top             >=0.2.2 && <0.3
+    , top-apps
+    , transformers    >=0.4
+    , unix
+    , websockets
+    , zm              >=0.3.1 && <0.4
+
+  --, deepseq >= 1.4.1.1
+  -- , ghc
+  --, ghc-paths
+  -- >=0.4.2 && < 0.5
+  --, strict
+  --, timeit
+  -- , wuss
+  -- , top-apps
+
+  default-language: Haskell2010
 
 -- library internal
 --     hs-source-dirs:      src
@@ -53,49 +66,82 @@ library
 --     default-language:    Haskell2010
 
 executable top-router
-  hs-source-dirs:      app
-  main-is:             Main.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-  build-depends:       base
-                     , bytestring
-                     , hslogger
-                     , text
-                     , containers
-                     , wai
-                     , wai-websockets
-                     , warp
-                     , websockets
-                     , scotty>=0.7.2
-                     , transformers
-                     , zm, top
-                     , router
-                     --,internal
-                     , directory,unix,filepath,hdaemonize,top-apps
+  hs-source-dirs:   app
+  main-is:          Main.hs
+  ghc-options:      -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base            >=4.7   && <5
+    , bytestring
+    , containers
+    , directory
+    , filepath
+    , flat            >=0.6   && <0.7
+    , hdaemonize
+    , hslogger
+    , model           >=0.5   && <0.6
+    , router
+    , scotty          >=0.7.2
+    , text
+    , time
+    , top             >=0.2.2 && <0.3
+    , top-apps
+    , transformers
+    , unix
+    , wai
+    , wai-websockets
+    , warp
+    , websockets
+    , zm
 
-  default-language:    Haskell2010
+  --,internal
+  -- , top-apps
+  --,internal
+  default-language: Haskell2010
+
+-- other-modules:
+--   Data.Time.Util
+--   Model.Report
+--   Network.Bus
+--   Network.Router.ByAny
+--   Network.Router.ByPattern
+--   Network.Router.ByType
+--   Network.Router.Echo
+--   Network.Router.Types
+--   Network.Router.Util
+--   Pandoc.Report
+--   Quid2.Util.Service
 
 test-suite spec
-  type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
-  main-is:             Spec.hs
-  build-depends:       base,zm,hslogger,bytestring,websockets,async >= 2.1.0,stm,top,template-haskell,extra
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-  default-language:    Haskell2010
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  main-is:          Spec.hs
+  build-depends:
+      async             >=2.1.0
+    , base
+    , bytestring
+    , extra
+    , hslogger
+    , stm
+    , template-haskell
+    , top
+    , websockets
+    , zm
 
+  ghc-options:      -threaded -rtsopts -with-rtsopts=-N
+  default-language: Haskell2010
 
 test-suite doctest
-  default-language:   Haskell2010
-  type:               exitcode-stdio-1.0
-  ghc-options:        -threaded
-  main-is:            DocSpec.hs
-  build-depends:      base >4 && <5, doctest>=0.11.1, filemanip>=0.3.6.3
-  HS-Source-Dirs:     test
+  default-language: Haskell2010
+  type:             exitcode-stdio-1.0
+  ghc-options:      -threaded
+  main-is:          DocSpec.hs
+  build-depends:
+      base       >4       && <5
+    , doctest    >=0.11.1
+    , filemanip  >=0.3.6.3
+
+  hs-source-dirs:   test
 
 source-repository head
   type:     git
   location: https://github.com/Quid2/router
-
-
-
-
-
