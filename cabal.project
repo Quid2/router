@@ -5,10 +5,10 @@ ignore-project: False
 
 tests: True
 
-source-repository-package
-    type: git
-    location: https://github.com/tittoassini/doctest
-    tag: 3954e94449901764e28cfed1c35490af970e9b01
+-- source-repository-package
+--    type: git
+--    location: https://github.com/tittoassini/doctest
+--    tag: 3954e94449901764e28cfed1c35490af970e9b01
 
 source-repository-package
     type: git
